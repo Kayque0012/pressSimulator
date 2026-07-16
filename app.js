@@ -873,3 +873,166 @@ evaluate();
 requestAnimationFrame(
   tick
 );
+/* =========================================================
+   NAVEGAÇÃO ENTRE PÁGINAS
+========================================================= */
+
+const navItems =
+  document.querySelectorAll(".nav-item");
+
+const pages =
+  document.querySelectorAll(".page");
+
+function openPage(pageId) {
+
+  pages.forEach(page => {
+
+    page.classList.remove(
+      "active-page"
+    );
+
+  });
+
+  navItems.forEach(item => {
+
+    item.classList.remove(
+      "active"
+    );
+
+  });
+
+  const targetPage =
+    document.getElementById(pageId);
+
+  if (targetPage) {
+
+    targetPage.classList.add(
+      "active-page"
+    );
+
+  }
+
+  const targetButton =
+    document.querySelector(
+      `[data-page="${pageId}"]`
+    );
+
+  if (targetButton) {
+
+    targetButton.classList.add(
+      "active"
+    );
+
+  }
+
+}
+
+navItems.forEach(item => {
+
+  item.addEventListener(
+    "click",
+    () => {
+
+      openPage(
+        item.dataset.page
+      );
+
+    }
+  );
+
+});
+
+$("openIoMapButton").addEventListener(
+  "click",
+  () => {
+
+    openPage("io-map");
+
+  }
+);
+
+$("openSettingsButton").addEventListener(
+  "click",
+  () => {
+
+    openPage("settings");
+
+  }
+);
+
+/* =========================================================
+   LED DE RESET PISCANDO
+========================================================= */
+
+function updateResetLed() {
+
+  const led =
+    $("resetLed");
+
+  led.classList.remove(
+    "on",
+    "blinking"
+  );
+
+  if (needsReset()) {
+
+    led.classList.add(
+      "blinking"
+    );
+
+  }
+
+  if (
+    state.ready &&
+    isSafe()
+  ) {
+
+    led.classList.add(
+      "on"
+    );
+
+  }
+
+}
+
+/* =========================================================
+   SINCRONIZAÇÃO DAS TABELAS
+========================================================= */
+
+function syncMonitorTables() {
+
+  const inputHtml =
+    $("inputTable").innerHTML;
+
+  const outputHtml =
+    $("outputTable").innerHTML;
+
+  $("monitorInputTable").innerHTML =
+    inputHtml;
+
+  $("monitorOutputTable").innerHTML =
+    outputHtml;
+
+}
+
+/* =========================================================
+   EVENTOS NA PÁGINA COMPLETA
+========================================================= */
+
+function syncFullEvents() {
+
+  $("fullEvents").innerHTML =
+    $("events").innerHTML;
+
+}
+
+$("clearEventsButton").addEventListener(
+  "click",
+  () => {
+
+    $("events").innerHTML = "";
+
+    $("fullEvents").innerHTML = "";
+
+  }
+);
