@@ -1,170 +1,875 @@
-
 const initialState = () => ({
-  emergency:false, curtainBlocked:false, chockInserted:false,
-  mode:"manual", left:false, right:false, reset:false,
-  ready:false, valve:false, cylinder:0
+  emergency: false,
+
+  curtainBlocked: false,
+
+  chockInserted: false,
+
+  mode: "manual",
+
+  left: false,
+
+  right: false,
+
+  reset: false,
+
+  ready: false,
+
+  valve: false,
+
+  cylinder: 0
 });
 
 let state = initialState();
-const $ = (id) => document.getElementById(id);
 
-function isSafe(){ return !state.emergency && !state.curtainBlocked && !state.chockInserted; }
-function needsReset(){ return isSafe() && !state.ready; }
+const $ = id => document.getElementById(id);
 
-function log(message){
+/* =========================================================
+   REGRAS TEMPORÁRIAS DO MODO DEMONSTRAÇÃO
+========================================================= */
+
+function isSafe() {
+
+  return (
+    !state.emergency &&
+    !state.curtainBlocked &&
+    !state.chockInserted
+  );
+
+}
+
+function needsReset() {
+
+  return (
+    isSafe() &&
+    !state.ready
+  );
+
+}
+
+/* =========================================================
+   LOG DE EVENTOS
+========================================================= */
+
+function log(message) {
+
   const line = document.createElement("div");
-  line.textContent = `${new Date().toLocaleTimeString()} — ${message}`;
+
+  line.textContent =
+    `${new Date().toLocaleTimeString()}  ●  ${message}`;
+
   $("events").prepend(line);
+
 }
 
-function evaluate(){
-  if(!isSafe()){
+/* =========================================================
+   MOTOR TEMPORÁRIO DA DEMONSTRAÇÃO
+========================================================= */
+
+function evaluate() {
+
+  if (!isSafe()) {
+
     state.ready = false;
+
     state.valve = false;
+
   } else {
-    const twoHand = state.left && state.right;
-    if(state.mode === "manual"){
-      state.valve = state.ready && twoHand;
+
+    const twoHand =
+      state.left &&
+      state.right;
+
+    if (state.mode === "manual") {
+
+      state.valve =
+        state.ready &&
+        twoHand;
+
     } else {
-      if(state.ready && twoHand && state.cylinder < .1) state.valve = true;
-      if(state.cylinder > .95) state.valve = false;
+
+      if (
+        state.ready &&
+        twoHand &&
+        state.cylinder < 0.1
+      ) {
+
+        state.valve = true;
+
+      }
+
+      if (state.cylinder > 0.95) {
+
+        state.valve = false;
+
+      }
+
     }
+
   }
+
   render();
+
 }
 
-function render(){
-  $("ram").style.top = `${260 + state.cylinder * 82}px`;
-  $("rod").style.height = `${90 + state.cylinder * 82}px`;
-  $("curtain").classList.toggle("blocked",state.curtainBlocked);
+/* =========================================================
+   TABELAS DE I/O
+========================================================= */
 
-  $("lampRed").classList.toggle("on",!isSafe());
-  $("lampYellow").classList.toggle("on",needsReset());
-  $("lampGreen").classList.toggle("on",state.ready && isSafe());
+function renderTable(targetId, signals) {
 
-  $("sensorRet").textContent = state.cylinder < .08 ? "ATIVO" : "INATIVO";
-  $("sensorAdv").textContent = state.cylinder > .92 ? "ATIVO" : "INATIVO";
-  $("valveText").textContent = state.valve ? "ATIVA" : "INATIVA";
+  $(targetId).innerHTML = signals
+    .map(([id, label, value]) => `
 
-  let status = "Máquina pronta";
-  let color = "var(--green)";
-  if(state.emergency){ status="Emergência acionada"; color="var(--red)"; }
-  else if(state.curtainBlocked){ status="Cortina interrompida"; color="var(--red)"; }
-  else if(state.chockInserted){ status="Calço inserido"; color="var(--red)"; }
-  else if(needsReset()){ status="Aguardando reset"; color="var(--yellow)"; }
-  $("statusText").textContent = status;
-  $("statusDot").style.background = color;
+      <tr>
 
-  const signals = [
-    ["I01","Emergência CH1",!state.emergency],
-    ["I02","Emergência CH2",!state.emergency],
-    ["I03","Bimanual esquerdo",state.left],
-    ["I04","Bimanual direito",state.right],
-    ["I05","Cortina CH1",!state.curtainBlocked],
-    ["I06","Cortina CH2",!state.curtainBlocked],
-    ["I07","Reset",state.reset],
-    ["I08","Sensor recuado",state.cylinder < .08],
-    ["I09","Sensor avançado",state.cylinder > .92],
-    ["I10","Calço recolhido",!state.chockInserted],
-    ["Q01","Válvula pneumática",state.valve],
-    ["Q02","LED reset",needsReset()],
-    ["Q03","Torre verde",state.ready && isSafe()],
-    ["Q04","Torre amarela",needsReset()],
-    ["Q05","Torre vermelha",!isSafe()]
+        <td>
+          ${id}
+        </td>
+
+        <td>
+          ${label}
+        </td>
+
+        <td>
+
+          <span class="state-tag ${value ? "on" : ""}">
+
+            ${value ? "ATIVO" : "INATIVO"}
+
+          </span>
+
+        </td>
+
+        <td>
+
+          ${value ? 1 : 0}
+
+          <span class="state-dot ${value ? "on" : ""}">
+          </span>
+
+        </td>
+
+      </tr>
+
+    `)
+    .join("");
+
+}
+
+/* =========================================================
+   ATUALIZAÇÃO VISUAL
+========================================================= */
+
+function render() {
+
+  $("ram").style.top =
+    `${257 + state.cylinder * 82}px`;
+
+  $("rod").style.height =
+    `${98 + state.cylinder * 82}px`;
+
+  $("curtain").classList.toggle(
+    "blocked",
+    state.curtainBlocked
+  );
+
+  $("lampRed").classList.toggle(
+    "on",
+    !isSafe()
+  );
+
+  $("lampYellow").classList.toggle(
+    "on",
+    needsReset()
+  );
+
+  $("lampGreen").classList.toggle(
+    "on",
+    state.ready && isSafe()
+  );
+
+  $("resetLed").classList.toggle(
+    "on",
+    needsReset()
+  );
+
+  $("chockLed").classList.toggle(
+    "on",
+    !state.chockInserted
+  );
+
+  const sensorRetracted =
+    state.cylinder < 0.08;
+
+  const sensorExtended =
+    state.cylinder > 0.92;
+
+  $("sensorRet").textContent =
+    sensorRetracted
+      ? "ATIVO"
+      : "INATIVO";
+
+  $("sensorAdv").textContent =
+    sensorExtended
+      ? "ATIVO"
+      : "INATIVO";
+
+  $("sensorRetLed").classList.toggle(
+    "on",
+    sensorRetracted
+  );
+
+  $("sensorAdvLed").classList.toggle(
+    "green",
+    sensorExtended
+  );
+
+  $("sensorAdvLed").classList.toggle(
+    "on",
+    sensorExtended
+  );
+
+  const percentage =
+    Math.round(
+      state.cylinder * 100
+    );
+
+  $("positionBar").style.width =
+    `${percentage}%`;
+
+  $("miniFill").style.width =
+    `${percentage}%`;
+
+  let position =
+    "EM MOVIMENTO";
+
+  if (sensorRetracted) {
+
+    position =
+      "RECUADO";
+
+  }
+
+  if (sensorExtended) {
+
+    position =
+      "AVANÇADO";
+
+  }
+
+  $("positionText").textContent =
+    position;
+
+  const inputs = [
+
+    [
+      "I1",
+      "Emergência CH1",
+      !state.emergency
+    ],
+
+    [
+      "I2",
+      "Emergência CH2",
+      !state.emergency
+    ],
+
+    [
+      "I3",
+      "Bimanual esquerdo",
+      state.left
+    ],
+
+    [
+      "I4",
+      "Bimanual direito",
+      state.right
+    ],
+
+    [
+      "I5",
+      "Cortina de luz CH1",
+      !state.curtainBlocked
+    ],
+
+    [
+      "I6",
+      "Cortina de luz CH2",
+      !state.curtainBlocked
+    ],
+
+    [
+      "I7",
+      "Calço monitorado",
+      !state.chockInserted
+    ],
+
+    [
+      "I8",
+      "Sensor recuado",
+      sensorRetracted
+    ],
+
+    [
+      "I9",
+      "Sensor avançado",
+      sensorExtended
+    ],
+
+    [
+      "I10",
+      "Seletora manual",
+      state.mode === "manual"
+    ],
+
+    [
+      "I11",
+      "Seletora automático",
+      state.mode === "automatic"
+    ],
+
+    [
+      "I12",
+      "Reset",
+      state.reset
+    ],
+
+    [
+      "I13",
+      "Pressão OK",
+      true
+    ]
+
   ];
 
-  $("ioTable").innerHTML = signals.map(([id,label,value]) =>
-    `<tr><td>${id}</td><td>${label}</td><td class="${value?"on":"off"}">${value?"ATIVO":"INATIVO"}</td></tr>`
-  ).join("");
+  const outputs = [
+
+    [
+      "Q1",
+      "Válvula pneumática",
+      state.valve
+    ],
+
+    [
+      "Q2",
+      "Torre verde",
+      state.ready && isSafe()
+    ],
+
+    [
+      "Q3",
+      "Torre amarela",
+      needsReset()
+    ],
+
+    [
+      "Q4",
+      "Torre vermelha",
+      !isSafe()
+    ],
+
+    [
+      "Q5",
+      "LED reset",
+      needsReset()
+    ],
+
+    [
+      "Q6",
+      "Buzzer",
+      false
+    ]
+
+  ];
+
+  renderTable(
+    "inputTable",
+    inputs
+  );
+
+  renderTable(
+    "outputTable",
+    outputs
+  );
+
 }
 
-function holdButton(id,key){
-  const el = $(id);
-  ["mousedown","touchstart"].forEach(evt => el.addEventListener(evt,e => {
-    e.preventDefault(); state[key]=true; evaluate();
-  }));
-  ["mouseup","mouseleave","touchend"].forEach(evt => el.addEventListener(evt,e => {
-    e.preventDefault(); state[key]=false; evaluate();
-  }));
+/* =========================================================
+   BOTÕES DE PRESSÃO CONTÍNUA
+========================================================= */
+
+function holdButton(id, key) {
+
+  const element =
+    $(id);
+
+  [
+    "mousedown",
+    "touchstart"
+  ].forEach(eventName => {
+
+    element.addEventListener(
+      eventName,
+      event => {
+
+        event.preventDefault();
+
+        state[key] =
+          true;
+
+        element.classList.add(
+          "active"
+        );
+
+        evaluate();
+
+      }
+    );
+
+  });
+
+  [
+    "mouseup",
+    "mouseleave",
+    "touchend"
+  ].forEach(eventName => {
+
+    element.addEventListener(
+      eventName,
+      event => {
+
+        event.preventDefault();
+
+        state[key] =
+          false;
+
+        element.classList.remove(
+          "active"
+        );
+
+        evaluate();
+
+      }
+    );
+
+  });
+
 }
 
-holdButton("leftHand","left");
-holdButton("rightHand","right");
+holdButton(
+  "leftHand",
+  "left"
+);
 
-$("emergency").addEventListener("click",()=>{
-  state.emergency=!state.emergency;
-  log(state.emergency?"Emergência acionada":"Emergência liberada");
-  evaluate();
+holdButton(
+  "rightHand",
+  "right"
+);
+
+/* =========================================================
+   EMERGÊNCIA
+========================================================= */
+
+$("emergency").addEventListener(
+  "click",
+  () => {
+
+    state.emergency =
+      !state.emergency;
+
+    log(
+      state.emergency
+        ? "Emergência acionada"
+        : "Emergência liberada"
+    );
+
+    evaluate();
+
+  }
+);
+
+/* =========================================================
+   CORTINA
+========================================================= */
+
+$("curtainButton").addEventListener(
+  "click",
+  () => {
+
+    state.curtainBlocked =
+      !state.curtainBlocked;
+
+    $("curtainButton").textContent =
+      state.curtainBlocked
+        ? "Liberar cortina"
+        : "Interromper cortina";
+
+    log(
+      state.curtainBlocked
+        ? "Cortina interrompida"
+        : "Cortina liberada"
+    );
+
+    evaluate();
+
+  }
+);
+
+/* =========================================================
+   CALÇO MONITORADO
+========================================================= */
+
+$("chock").addEventListener(
+  "click",
+  () => {
+
+    state.chockInserted =
+      !state.chockInserted;
+
+    $("chock").classList.toggle(
+      "active",
+      state.chockInserted
+    );
+
+    log(
+      state.chockInserted
+        ? "Calço inserido"
+        : "Calço removido"
+    );
+
+    evaluate();
+
+  }
+);
+
+/* =========================================================
+   SELETORA
+========================================================= */
+
+$("mode").addEventListener(
+  "change",
+  event => {
+
+    state.mode =
+      event.target.value;
+
+    log(
+      `Modo alterado para ${state.mode}`
+    );
+
+    evaluate();
+
+  }
+);
+
+/* =========================================================
+   RESET
+========================================================= */
+
+[
+  "mousedown",
+  "touchstart"
+].forEach(eventName => {
+
+  $("resetButton").addEventListener(
+    eventName,
+    event => {
+
+      event.preventDefault();
+
+      state.reset =
+        true;
+
+      $("resetButton").classList.add(
+        "active"
+      );
+
+      if (isSafe()) {
+
+        state.ready =
+          true;
+
+        log(
+          "Reset aceito — máquina pronta"
+        );
+
+      }
+
+      evaluate();
+
+    }
+  );
+
 });
 
-$("curtainButton").addEventListener("click",()=>{
-  state.curtainBlocked=!state.curtainBlocked;
-  $("curtainButton").textContent=state.curtainBlocked?"Liberar cortina":"Interromper cortina";
-  log(state.curtainBlocked?"Cortina interrompida":"Cortina liberada");
-  evaluate();
+[
+  "mouseup",
+  "mouseleave",
+  "touchend"
+].forEach(eventName => {
+
+  $("resetButton").addEventListener(
+    eventName,
+    event => {
+
+      event.preventDefault();
+
+      state.reset =
+        false;
+
+      $("resetButton").classList.remove(
+        "active"
+      );
+
+      evaluate();
+
+    }
+  );
+
 });
 
-$("chock").addEventListener("click",()=>{
-  state.chockInserted=!state.chockInserted;
-  $("chock").textContent=state.chockInserted?"Remover calço":"Inserir calço";
-  log(state.chockInserted?"Calço inserido":"Calço removido");
-  evaluate();
-});
+/* =========================================================
+   IMPORTAÇÃO DO ARQUIVO
+========================================================= */
 
-$("mode").addEventListener("change",e=>{
-  state.mode=e.target.value;
-  log(`Modo alterado para ${state.mode}`);
-  evaluate();
-});
+$("msxFile").addEventListener(
+  "change",
+  event => {
 
-["mousedown","touchstart"].forEach(evt => $("resetButton").addEventListener(evt,e=>{
-  e.preventDefault();
-  state.reset=true;
-  if(isSafe()){state.ready=true;log("Reset aceito — máquina pronta");}
-  evaluate();
-}));
-["mouseup","mouseleave","touchend"].forEach(evt => $("resetButton").addEventListener(evt,e=>{
-  e.preventDefault();state.reset=false;evaluate();
-}));
+    const file =
+      event.target.files[0];
 
-$("resetScene").addEventListener("click",()=>{
-  state=initialState();
-  $("mode").value="manual";
-  $("curtainButton").textContent="Interromper cortina";
-  $("chock").textContent="Inserir calço";
-  log("Cenário restaurado");
-  evaluate();
-});
+    if (file) {
 
-$("msxFile").addEventListener("change",e=>{
-  const file=e.target.files[0];
-  if(file) log(`Arquivo selecionado: ${file.name} — parser será integrado na próxima etapa`);
-});
+      $("projectName").textContent =
+        file.name;
 
-document.addEventListener("keydown",e=>{
-  if(e.repeat)return;
-  if(e.key.toLowerCase()==="a")state.left=true;
-  if(e.key.toLowerCase()==="d")state.right=true;
-  if(e.code==="Space"){e.preventDefault();state.reset=true;if(isSafe())state.ready=true;}
-  evaluate();
-});
-document.addEventListener("keyup",e=>{
-  if(e.key.toLowerCase()==="a")state.left=false;
-  if(e.key.toLowerCase()==="d")state.right=false;
-  if(e.code==="Space")state.reset=false;
-  evaluate();
-});
+      log(
+        `Arquivo selecionado: ${file.name}`
+      );
 
-let last=performance.now();
-function tick(now){
-  const dt=Math.min((now-last)/1000,.05);last=now;
-  const target=state.valve?1:0;
-  const speed=.9;
-  if(state.cylinder<target)state.cylinder=Math.min(target,state.cylinder+speed*dt);
-  if(state.cylinder>target)state.cylinder=Math.max(target,state.cylinder-speed*dt);
+    }
+
+  }
+);
+
+/* =========================================================
+   ATALHOS DO TECLADO
+========================================================= */
+
+document.addEventListener(
+  "keydown",
+  event => {
+
+    if (event.repeat) {
+
+      return;
+
+    }
+
+    if (
+      event.key.toLowerCase() === "a"
+    ) {
+
+      state.left =
+        true;
+
+      $("leftHand").classList.add(
+        "active"
+      );
+
+    }
+
+    if (
+      event.key.toLowerCase() === "d"
+    ) {
+
+      state.right =
+        true;
+
+      $("rightHand").classList.add(
+        "active"
+      );
+
+    }
+
+    if (
+      event.key.toLowerCase() === "e"
+    ) {
+
+      state.emergency =
+        !state.emergency;
+
+      log(
+        state.emergency
+          ? "Emergência acionada"
+          : "Emergência liberada"
+      );
+
+    }
+
+    if (
+      event.key.toLowerCase() === "m"
+    ) {
+
+      state.mode =
+        state.mode === "manual"
+          ? "automatic"
+          : "manual";
+
+      $("mode").value =
+        state.mode;
+
+    }
+
+    if (
+      event.code === "Space"
+    ) {
+
+      event.preventDefault();
+
+      state.reset =
+        true;
+
+      $("resetButton").classList.add(
+        "active"
+      );
+
+      if (isSafe()) {
+
+        state.ready =
+          true;
+
+      }
+
+    }
+
+    evaluate();
+
+  }
+);
+
+document.addEventListener(
+  "keyup",
+  event => {
+
+    if (
+      event.key.toLowerCase() === "a"
+    ) {
+
+      state.left =
+        false;
+
+      $("leftHand").classList.remove(
+        "active"
+      );
+
+    }
+
+    if (
+      event.key.toLowerCase() === "d"
+    ) {
+
+      state.right =
+        false;
+
+      $("rightHand").classList.remove(
+        "active"
+      );
+
+    }
+
+    if (
+      event.code === "Space"
+    ) {
+
+      state.reset =
+        false;
+
+      $("resetButton").classList.remove(
+        "active"
+      );
+
+    }
+
+    evaluate();
+
+  }
+);
+
+/* =========================================================
+   ANIMAÇÃO DO CILINDRO
+========================================================= */
+
+let last =
+  performance.now();
+
+function tick(now) {
+
+  const dt =
+    Math.min(
+      (now - last) / 1000,
+      0.05
+    );
+
+  last =
+    now;
+
+  const target =
+    state.valve
+      ? 1
+      : 0;
+
+  const speed =
+    0.9;
+
+  if (
+    state.cylinder < target
+  ) {
+
+    state.cylinder =
+      Math.min(
+        target,
+        state.cylinder + speed * dt
+      );
+
+  }
+
+  if (
+    state.cylinder > target
+  ) {
+
+    state.cylinder =
+      Math.max(
+        target,
+        state.cylinder - speed * dt
+      );
+
+  }
+
   render();
-  requestAnimationFrame(tick);
+
+  requestAnimationFrame(
+    tick
+  );
+
 }
-log("pressSimulator iniciado");
+
+/* =========================================================
+   INICIALIZAÇÃO
+========================================================= */
+
+log(
+  "Sistema iniciado"
+);
+
+log(
+  "Modo demonstração ativo"
+);
+
 evaluate();
-requestAnimationFrame(tick);
+
+requestAnimationFrame(
+  tick
+);
