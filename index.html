@@ -3,95 +3,524 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+
   <title>pressSimulator</title>
+
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
+
   <aside class="sidebar">
-    <div class="brand"><span>press</span>Simulator</div>
-    <button class="active">Simulador</button>
-    <button>Mapa de I/O</button>
-    <button>Diagnóstico</button>
-    <button>Eventos</button>
+
+    <div class="brand">
+      <span>press</span>Simulator
+    </div>
+
+    <nav>
+      <button class="nav-item active">▶ Simulador</button>
+      <button class="nav-item">⌘ Mapa de I/O</button>
+      <button class="nav-item">▦ Entradas / Saídas</button>
+      <button class="nav-item">◫ Diagnóstico</button>
+      <button class="nav-item">▣ Eventos</button>
+      <button class="nav-item">◆ Falhas</button>
+      <button class="nav-item">⚙ Ajustes</button>
+    </nav>
+
+    <div class="shortcut-box">
+
+      <strong>ATALHOS</strong>
+
+      <span>
+        <b>A</b>
+        Bimanual esquerdo
+      </span>
+
+      <span>
+        <b>D</b>
+        Bimanual direito
+      </span>
+
+      <span>
+        <b>Espaço</b>
+        Reset
+      </span>
+
+      <span>
+        <b>E</b>
+        Emergência
+      </span>
+
+      <span>
+        <b>M</b>
+        Manual / Automático
+      </span>
+
+    </div>
+
+    <div class="system-card">
+
+      <span>Status do sistema</span>
+
+      <strong>
+        <i></i>
+        Simulação em execução
+      </strong>
+
+      <small>Modo demonstração</small>
+
+    </div>
+
   </aside>
 
   <main>
-    <header>
-      <div>
-        <small>Projeto</small>
-        <strong>Protótipo local</strong>
+
+    <header class="topbar">
+
+      <div class="project-info">
+
+        <div>
+          <small>Projeto carregado:</small>
+          <strong id="projectName">protótipo_demo</strong>
+        </div>
+
+        <span class="valid-badge">
+          Projeto válido
+        </span>
+
       </div>
-      <div class="actions">
-        <label class="file-button">
-          Abrir projeto
-          <input id="msxFile" type="file" accept=".msx">
+
+      <div class="header-actions">
+
+        <label class="action-button">
+
+          📁 Abrir projeto
+
+          <input
+            id="msxFile"
+            type="file"
+            accept=".msx"
+          >
+
         </label>
-        <button id="resetScene">Restaurar</button>
+
+        <button class="action-button">
+          ⌘ Mapa de I/O
+        </button>
+
+        <button class="run-button">
+          ▶ Executar
+        </button>
+
+        <button class="icon-button">
+          ⚙
+        </button>
+
       </div>
+
     </header>
 
-    <section class="layout">
-      <div class="machine-card">
-        <div class="status"><span id="statusDot"></span><strong id="statusText">Aguardando reset</strong></div>
+    <section class="workspace">
 
-        <div class="machine">
+      <section class="machine-zone">
+
+        <div class="machine-stage">
+
+          <div class="stage-wall"></div>
+
+          <div class="machine-brand">
+            pressSimulator
+          </div>
+
           <div class="tower">
-            <span id="lampRed" class="lamp red"></span>
-            <span id="lampYellow" class="lamp yellow"></span>
-            <span id="lampGreen" class="lamp green"></span>
+
+            <span
+              id="lampRed"
+              class="tower-lamp red">
+            </span>
+
+            <span
+              id="lampYellow"
+              class="tower-lamp yellow">
+            </span>
+
+            <span
+              id="lampGreen"
+              class="tower-lamp green">
+            </span>
+
+            <span class="tower-post"></span>
+
           </div>
 
-          <div class="left-controls">
-            <button id="emergency" class="emergency">EMERGÊNCIA</button>
-            <div class="twohand">
-              <button id="leftHand">ESQ.</button>
-              <button id="rightHand">DIR.</button>
+          <div class="left-console">
+
+            <div class="console-label yellow-label">
+              EMERGÊNCIA
             </div>
-            <button id="resetButton" class="reset">RESET</button>
+
+            <button
+              id="emergency"
+              class="emergency-button">
+            </button>
+
+            <div class="console-panel">
+
+              <strong>BIMANUAL</strong>
+
+              <div class="two-hand-row">
+
+                <div>
+
+                  <button
+                    id="leftHand"
+                    class="green-push">
+                  </button>
+
+                  <span>ESQ.</span>
+
+                </div>
+
+                <div>
+
+                  <button
+                    id="rightHand"
+                    class="green-push">
+                  </button>
+
+                  <span>DIR.</span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <div class="console-label">
+              RESET
+            </div>
+
+            <div class="reset-row">
+
+              <button
+                id="resetButton"
+                class="blue-push">
+              </button>
+
+              <span
+                id="resetLed"
+                class="reset-led">
+              </span>
+
+            </div>
+
           </div>
 
-          <div class="press">
-            <div class="cylinder"></div>
-            <div id="rod" class="rod"></div>
-            <div id="ram" class="ram"></div>
-            <div id="curtain" class="curtain"></div>
-            <div class="die"></div>
+          <div class="press-assembly">
+
+            <div class="top-cylinder">
+
+              <div class="cylinder-cap"></div>
+
+              <div class="cylinder-body"></div>
+
+              <div class="air-line left"></div>
+
+              <div class="air-line right"></div>
+
+            </div>
+
+            <div class="press-head">
+
+              <span class="head-bolt one"></span>
+              <span class="head-bolt two"></span>
+              <span class="head-bolt three"></span>
+              <span class="head-bolt four"></span>
+
+            </div>
+
+            <div class="column left-column"></div>
+
+            <div class="column right-column"></div>
+
+            <div
+              id="rod"
+              class="press-rod">
+            </div>
+
+            <div
+              id="ram"
+              class="press-ram">
+
+              <div class="hazard-stripe"></div>
+
+            </div>
+
+            <div
+              id="curtain"
+              class="light-curtain">
+
+              <div class="curtain-post left"></div>
+
+              <div class="curtain-post right"></div>
+
+              <div class="curtain-rays"></div>
+
+            </div>
+
+            <div class="tooling">
+
+              <div class="part"></div>
+
+              <div class="upper-die"></div>
+
+              <div class="lower-die"></div>
+
+            </div>
+
+            <div class="press-base"></div>
+
           </div>
 
-          <div class="right-controls">
-            <label>Modo
+          <div class="right-console">
+
+            <div class="console-panel selector-panel">
+
+              <strong>SELETORA</strong>
+
+              <small>
+                MANUAL / AUTOMÁTICO
+              </small>
+
               <select id="mode">
-                <option value="manual">Manual</option>
-                <option value="automatic">Automático</option>
+
+                <option value="manual">
+                  Manual
+                </option>
+
+                <option value="automatic">
+                  Automático
+                </option>
+
               </select>
-            </label>
-            <button id="chock">Inserir calço</button>
-            <button id="curtainButton">Interromper cortina</button>
+
+            </div>
+
+            <div class="console-panel chock-panel">
+
+              <strong>CALÇO</strong>
+
+              <small>MONITORADO</small>
+
+              <button
+                id="chock"
+                class="yellow-push">
+              </button>
+
+              <span
+                id="chockLed"
+                class="small-green-led">
+              </span>
+
+            </div>
+
+            <button
+              id="curtainButton"
+              class="secondary-control">
+
+              Interromper cortina
+
+            </button>
+
           </div>
+
+          <div class="status-strip">
+
+            <div class="status-item">
+
+              <span
+                id="sensorRetLed"
+                class="status-led green on">
+              </span>
+
+              <div>
+
+                <small>
+                  SENSOR RECUADO
+                </small>
+
+                <strong id="sensorRet">
+                  ATIVO
+                </strong>
+
+              </div>
+
+            </div>
+
+            <div class="status-item">
+
+              <span
+                id="sensorAdvLed"
+                class="status-led">
+              </span>
+
+              <div>
+
+                <small>
+                  SENSOR AVANÇADO
+                </small>
+
+                <strong id="sensorAdv">
+                  INATIVO
+                </strong>
+
+              </div>
+
+            </div>
+
+            <div class="status-item pressure-item">
+
+              <div class="pressure-gauge">
+                <span class="needle"></span>
+              </div>
+
+              <div>
+
+                <small>
+                  PRESSÃO
+                </small>
+
+                <strong>
+                  5.2 bar
+                </strong>
+
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
 
-        <div class="sensor-row">
-          <div>Sensor recuado <strong id="sensorRet">ATIVO</strong></div>
-          <div>Sensor avançado <strong id="sensorAdv">INATIVO</strong></div>
-          <div>Válvula <strong id="valveText">INATIVA</strong></div>
+      </section>
+
+      <aside class="io-column">
+
+        <section class="io-panel">
+
+          <h2>ENTRADAS</h2>
+
+          <table>
+
+            <thead>
+
+              <tr>
+                <th>ID</th>
+                <th>Descrição</th>
+                <th>Estado</th>
+                <th>Valor</th>
+              </tr>
+
+            </thead>
+
+            <tbody id="inputTable"></tbody>
+
+          </table>
+
+        </section>
+
+        <section class="io-panel">
+
+          <h2>SAÍDAS</h2>
+
+          <table>
+
+            <thead>
+
+              <tr>
+                <th>ID</th>
+                <th>Descrição</th>
+                <th>Estado</th>
+                <th>Valor</th>
+              </tr>
+
+            </thead>
+
+            <tbody id="outputTable"></tbody>
+
+          </table>
+
+        </section>
+
+      </aside>
+
+      <section class="bottom-row">
+
+        <div class="bottom-card events-card">
+
+          <h3>EVENTOS</h3>
+
+          <div id="events"></div>
+
         </div>
-      </div>
 
-      <div class="io-card">
-        <h2>Entradas e saídas</h2>
-        <table>
-          <thead><tr><th>ID</th><th>Sinal</th><th>Estado</th></tr></thead>
-          <tbody id="ioTable"></tbody>
-        </table>
-      </div>
+        <div class="bottom-card cylinder-card">
 
-      <div class="events-card">
-        <h2>Eventos</h2>
-        <div id="events"></div>
-      </div>
+          <h3>CILINDRO PNEUMÁTICO</h3>
+
+          <div class="mini-cylinder">
+
+            <div class="mini-body">
+              <span id="miniFill"></span>
+            </div>
+
+            <div class="mini-rod"></div>
+
+          </div>
+
+          <div class="progress-track">
+            <span id="positionBar"></span>
+          </div>
+
+          <strong>
+
+            Posição:
+
+            <b id="positionText">
+              RECUADO
+            </b>
+
+          </strong>
+
+        </div>
+
+        <div class="bottom-card side-view-card">
+
+          <h3>VISTA LATERAL</h3>
+
+          <div class="mini-press">
+
+            <div class="mini-top"></div>
+
+            <div class="mini-col left"></div>
+
+            <div class="mini-col right"></div>
+
+            <div class="mini-tool"></div>
+
+            <div class="mini-base"></div>
+
+          </div>
+
+        </div>
+
+      </section>
+
     </section>
+
   </main>
 
- <script src="app.js"></script>
+  <script src="app.js"></script>
+
 </body>
 </html>
