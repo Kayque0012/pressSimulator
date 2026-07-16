@@ -18,13 +18,35 @@
     </div>
 
     <nav>
-      <button class="nav-item active">▶ Simulador</button>
-      <button class="nav-item">⌘ Mapa de I/O</button>
-      <button class="nav-item">▦ Entradas / Saídas</button>
-      <button class="nav-item">◫ Diagnóstico</button>
-      <button class="nav-item">▣ Eventos</button>
-      <button class="nav-item">◆ Falhas</button>
-      <button class="nav-item">⚙ Ajustes</button>
+
+      <button class="nav-item active" data-page="simulator">
+        ▶ Simulador
+      </button>
+
+      <button class="nav-item" data-page="io-map">
+        ⌘ Mapa de I/O
+      </button>
+
+      <button class="nav-item" data-page="io-monitor">
+        ▦ Entradas / Saídas
+      </button>
+
+      <button class="nav-item" data-page="diagnostics">
+        ◫ Diagnóstico
+      </button>
+
+      <button class="nav-item" data-page="events-page">
+        ▣ Eventos
+      </button>
+
+      <button class="nav-item" data-page="faults">
+        ◆ Falhas
+      </button>
+
+      <button class="nav-item" data-page="settings">
+        ⚙ Ajustes
+      </button>
+
     </nav>
 
     <div class="shortcut-box">
@@ -104,7 +126,10 @@
 
         </label>
 
-        <button class="action-button">
+        <button
+          class="action-button"
+          id="openIoMapButton"
+        >
           ⌘ Mapa de I/O
         </button>
 
@@ -112,7 +137,10 @@
           ▶ Executar
         </button>
 
-        <button class="icon-button">
+        <button
+          class="icon-button"
+          id="openSettingsButton"
+        >
           ⚙
         </button>
 
@@ -120,75 +148,310 @@
 
     </header>
 
-    <section class="workspace">
+    <!-- =====================================================
+         SIMULADOR
+    ====================================================== -->
 
-      <section class="machine-zone">
+    <section
+      id="simulator"
+      class="page active-page"
+    >
 
-        <div class="machine-stage">
+      <section class="workspace">
 
-          <div class="stage-wall"></div>
+        <section class="machine-zone">
 
-          <div class="machine-brand">
-            pressSimulator
-          </div>
+          <div class="machine-stage">
 
-          <div class="tower">
+            <div class="stage-wall"></div>
 
-            <span
-              id="lampRed"
-              class="tower-lamp red">
-            </span>
-
-            <span
-              id="lampYellow"
-              class="tower-lamp yellow">
-            </span>
-
-            <span
-              id="lampGreen"
-              class="tower-lamp green">
-            </span>
-
-            <span class="tower-post"></span>
-
-          </div>
-
-          <div class="left-console">
-
-            <div class="console-label yellow-label">
-              EMERGÊNCIA
+            <div class="machine-brand">
+              pressSimulator
             </div>
 
-            <button
-              id="emergency"
-              class="emergency-button">
-            </button>
+            <div class="two-hand-help">
 
-            <div class="console-panel">
+              <strong>ACIONAMENTO BIMANUAL</strong>
 
-              <strong>BIMANUAL</strong>
+              <span>
+                Pressione simultaneamente:
+              </span>
 
-              <div class="two-hand-row">
+              <div>
+                <kbd>A</kbd>
+                <span>+</span>
+                <kbd>D</kbd>
+              </div>
+
+            </div>
+
+            <div class="tower">
+
+              <span
+                id="lampRed"
+                class="tower-lamp red">
+              </span>
+
+              <span
+                id="lampYellow"
+                class="tower-lamp yellow">
+              </span>
+
+              <span
+                id="lampGreen"
+                class="tower-lamp green">
+              </span>
+
+              <span class="tower-post"></span>
+
+            </div>
+
+            <div class="left-console">
+
+              <div class="console-label yellow-label">
+                EMERGÊNCIA
+              </div>
+
+              <button
+                id="emergency"
+                class="emergency-button">
+              </button>
+
+              <div class="console-panel">
+
+                <strong>BIMANUAL</strong>
+
+                <div class="two-hand-row">
+
+                  <div>
+
+                    <button
+                      id="leftHand"
+                      class="green-push">
+                    </button>
+
+                    <span>ESQ.</span>
+
+                  </div>
+
+                  <div>
+
+                    <button
+                      id="rightHand"
+                      class="green-push">
+                    </button>
+
+                    <span>DIR.</span>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div class="console-label">
+                RESET
+              </div>
+
+              <div class="reset-component">
+
+                <button
+                  id="resetButton"
+                  class="reset-button"
+                >
+
+                  <span class="reset-button-face"></span>
+
+                  <span
+                    id="resetLed"
+                    class="reset-button-led">
+                  </span>
+
+                </button>
+
+                <small>RESET</small>
+
+              </div>
+
+            </div>
+
+            <div class="press-assembly">
+
+              <div class="top-cylinder">
+
+                <div class="cylinder-cap"></div>
+
+                <div class="cylinder-body"></div>
+
+                <div class="air-line left"></div>
+
+                <div class="air-line right"></div>
+
+              </div>
+
+              <div class="press-head">
+
+                <span class="head-bolt one"></span>
+                <span class="head-bolt two"></span>
+                <span class="head-bolt three"></span>
+                <span class="head-bolt four"></span>
+
+              </div>
+
+              <div class="column left-column"></div>
+
+              <div class="column right-column"></div>
+
+              <div
+                id="rod"
+                class="press-rod">
+              </div>
+
+              <div
+                id="ram"
+                class="press-ram">
+
+                <div class="hazard-stripe"></div>
+
+              </div>
+
+              <div
+                id="curtain"
+                class="light-curtain">
+
+                <div class="curtain-post left"></div>
+
+                <div class="curtain-post right"></div>
+
+                <div class="curtain-rays"></div>
+
+              </div>
+
+              <div class="tooling">
+
+                <div class="part"></div>
+
+                <div class="upper-die"></div>
+
+                <div class="lower-die"></div>
+
+              </div>
+
+              <div class="press-base"></div>
+
+            </div>
+
+            <div class="right-console">
+
+              <div class="console-panel selector-panel">
+
+                <strong>SELETORA</strong>
+
+                <small>
+                  MANUAL / AUTOMÁTICO
+                </small>
+
+                <select id="mode">
+
+                  <option value="manual">
+                    Manual
+                  </option>
+
+                  <option value="automatic">
+                    Automático
+                  </option>
+
+                </select>
+
+              </div>
+
+              <div class="console-panel chock-panel">
+
+                <strong>CALÇO</strong>
+
+                <small>MONITORADO</small>
+
+                <button
+                  id="chock"
+                  class="yellow-push">
+                </button>
+
+                <span
+                  id="chockLed"
+                  class="small-green-led">
+                </span>
+
+              </div>
+
+              <button
+                id="curtainButton"
+                class="secondary-control">
+
+                Interromper cortina
+
+              </button>
+
+            </div>
+
+            <div class="status-strip">
+
+              <div class="status-item">
+
+                <span
+                  id="sensorRetLed"
+                  class="status-led green on">
+                </span>
 
                 <div>
 
-                  <button
-                    id="leftHand"
-                    class="green-push">
-                  </button>
+                  <small>
+                    SENSOR RECUADO
+                  </small>
 
-                  <span>ESQ.</span>
+                  <strong id="sensorRet">
+                    ATIVO
+                  </strong>
 
+                </div>
+
+              </div>
+
+              <div class="status-item">
+
+                <span
+                  id="sensorAdvLed"
+                  class="status-led">
+                </span>
+
+                <div>
+
+                  <small>
+                    SENSOR AVANÇADO
+                  </small>
+
+                  <strong id="sensorAdv">
+                    INATIVO
+                  </strong>
+
+                </div>
+
+              </div>
+
+              <div class="status-item pressure-item">
+
+                <div class="pressure-gauge">
+                  <span class="needle"></span>
                 </div>
 
                 <div>
 
-                  <button
-                    id="rightHand"
-                    class="green-push">
-                  </button>
+                  <small>
+                    PRESSÃO
+                  </small>
 
-                  <span>DIR.</span>
+                  <strong>
+                    5.2 bar
+                  </strong>
 
                 </div>
 
@@ -196,325 +459,572 @@
 
             </div>
 
-            <div class="console-label">
-              RESET
+          </div>
+
+        </section>
+
+        <aside class="io-column">
+
+          <section class="io-panel">
+
+            <h2>ENTRADAS</h2>
+
+            <table>
+
+              <thead>
+
+                <tr>
+                  <th>ID</th>
+                  <th>Descrição</th>
+                  <th>Estado</th>
+                  <th>Valor</th>
+                </tr>
+
+              </thead>
+
+              <tbody id="inputTable"></tbody>
+
+            </table>
+
+          </section>
+
+          <section class="io-panel">
+
+            <h2>SAÍDAS</h2>
+
+            <table>
+
+              <thead>
+
+                <tr>
+                  <th>ID</th>
+                  <th>Descrição</th>
+                  <th>Estado</th>
+                  <th>Valor</th>
+                </tr>
+
+              </thead>
+
+              <tbody id="outputTable"></tbody>
+
+            </table>
+
+          </section>
+
+        </aside>
+
+        <section class="bottom-row">
+
+          <div class="bottom-card events-card">
+
+            <h3>EVENTOS</h3>
+
+            <div id="events"></div>
+
+          </div>
+
+          <div class="bottom-card cylinder-card">
+
+            <h3>CILINDRO PNEUMÁTICO</h3>
+
+            <div class="mini-cylinder">
+
+              <div class="mini-body">
+                <span id="miniFill"></span>
+              </div>
+
+              <div class="mini-rod"></div>
+
             </div>
 
-            <div class="reset-row">
+            <div class="progress-track">
+              <span id="positionBar"></span>
+            </div>
 
-              <button
-                id="resetButton"
-                class="blue-push">
-              </button>
+            <strong>
 
-              <span
-                id="resetLed"
-                class="reset-led">
-              </span>
+              Posição:
+
+              <b id="positionText">
+                RECUADO
+              </b>
+
+            </strong>
+
+          </div>
+
+          <div class="bottom-card side-view-card">
+
+            <h3>VISTA LATERAL</h3>
+
+            <div class="mini-press">
+
+              <div class="mini-top"></div>
+
+              <div class="mini-col left"></div>
+
+              <div class="mini-col right"></div>
+
+              <div class="mini-tool"></div>
+
+              <div class="mini-base"></div>
 
             </div>
 
           </div>
 
-          <div class="press-assembly">
+        </section>
 
-            <div class="top-cylinder">
+      </section>
 
-              <div class="cylinder-cap"></div>
+    </section>
 
-              <div class="cylinder-body"></div>
+    <!-- =====================================================
+         MAPA DE I/O
+    ====================================================== -->
 
-              <div class="air-line left"></div>
+    <section
+      id="io-map"
+      class="page"
+    >
 
-              <div class="air-line right"></div>
+      <div class="page-content">
 
-            </div>
+        <div class="page-heading">
 
-            <div class="press-head">
-
-              <span class="head-bolt one"></span>
-              <span class="head-bolt two"></span>
-              <span class="head-bolt three"></span>
-              <span class="head-bolt four"></span>
-
-            </div>
-
-            <div class="column left-column"></div>
-
-            <div class="column right-column"></div>
-
-            <div
-              id="rod"
-              class="press-rod">
-            </div>
-
-            <div
-              id="ram"
-              class="press-ram">
-
-              <div class="hazard-stripe"></div>
-
-            </div>
-
-            <div
-              id="curtain"
-              class="light-curtain">
-
-              <div class="curtain-post left"></div>
-
-              <div class="curtain-post right"></div>
-
-              <div class="curtain-rays"></div>
-
-            </div>
-
-            <div class="tooling">
-
-              <div class="part"></div>
-
-              <div class="upper-die"></div>
-
-              <div class="lower-die"></div>
-
-            </div>
-
-            <div class="press-base"></div>
-
+          <div>
+            <small>Configuração do projeto</small>
+            <h1>Mapa de I/O</h1>
           </div>
 
-          <div class="right-console">
+          <button class="primary-page-button">
+            Salvar mapeamento
+          </button>
 
-            <div class="console-panel selector-panel">
+        </div>
 
-              <strong>SELETORA</strong>
+        <div class="info-callout">
 
-              <small>
-                MANUAL / AUTOMÁTICO
-              </small>
+          Associe cada entrada e saída detectada no projeto
+          aos componentes físicos do pressSimulator.
 
-              <select id="mode">
+        </div>
 
-                <option value="manual">
-                  Manual
-                </option>
+        <div class="mapping-grid">
 
-                <option value="automatic">
-                  Automático
-                </option>
+          <section class="page-card">
 
+            <h2>Entradas detectadas</h2>
+
+            <div class="mapping-row">
+
+              <div>
+                <strong>I1</strong>
+                <span>Entrada digital 1</span>
+              </div>
+
+              <select>
+                <option>Não mapeado</option>
+                <option>Emergência CH1</option>
+                <option>Emergência CH2</option>
+                <option>Bimanual esquerdo</option>
+                <option>Bimanual direito</option>
+                <option>Cortina CH1</option>
+                <option>Cortina CH2</option>
+                <option>Reset</option>
+                <option>Sensor recuado</option>
+                <option>Sensor avançado</option>
+                <option>Calço monitorado</option>
               </select>
 
             </div>
 
-            <div class="console-panel chock-panel">
-
-              <strong>CALÇO</strong>
-
-              <small>MONITORADO</small>
-
-              <button
-                id="chock"
-                class="yellow-push">
-              </button>
-
-              <span
-                id="chockLed"
-                class="small-green-led">
-              </span>
-
-            </div>
-
-            <button
-              id="curtainButton"
-              class="secondary-control">
-
-              Interromper cortina
-
-            </button>
-
-          </div>
-
-          <div class="status-strip">
-
-            <div class="status-item">
-
-              <span
-                id="sensorRetLed"
-                class="status-led green on">
-              </span>
+            <div class="mapping-row">
 
               <div>
-
-                <small>
-                  SENSOR RECUADO
-                </small>
-
-                <strong id="sensorRet">
-                  ATIVO
-                </strong>
-
+                <strong>I2</strong>
+                <span>Entrada digital 2</span>
               </div>
+
+              <select>
+                <option>Não mapeado</option>
+                <option>Emergência CH1</option>
+                <option>Emergência CH2</option>
+                <option>Bimanual esquerdo</option>
+                <option>Bimanual direito</option>
+              </select>
 
             </div>
 
-            <div class="status-item">
-
-              <span
-                id="sensorAdvLed"
-                class="status-led">
-              </span>
+            <div class="mapping-row">
 
               <div>
-
-                <small>
-                  SENSOR AVANÇADO
-                </small>
-
-                <strong id="sensorAdv">
-                  INATIVO
-                </strong>
-
+                <strong>I3</strong>
+                <span>Entrada digital 3</span>
               </div>
+
+              <select>
+                <option>Não mapeado</option>
+                <option>Bimanual esquerdo</option>
+                <option>Bimanual direito</option>
+                <option>Reset</option>
+              </select>
 
             </div>
 
-            <div class="status-item pressure-item">
+          </section>
 
-              <div class="pressure-gauge">
-                <span class="needle"></span>
-              </div>
+          <section class="page-card">
+
+            <h2>Saídas detectadas</h2>
+
+            <div class="mapping-row">
 
               <div>
-
-                <small>
-                  PRESSÃO
-                </small>
-
-                <strong>
-                  5.2 bar
-                </strong>
-
+                <strong>Q1</strong>
+                <span>Saída digital 1</span>
               </div>
+
+              <select>
+                <option>Não mapeado</option>
+                <option>Válvula pneumática</option>
+                <option>Torre verde</option>
+                <option>Torre amarela</option>
+                <option>Torre vermelha</option>
+                <option>LED reset</option>
+              </select>
 
             </div>
 
+            <div class="mapping-row">
+
+              <div>
+                <strong>Q2</strong>
+                <span>Saída digital 2</span>
+              </div>
+
+              <select>
+                <option>Não mapeado</option>
+                <option>Válvula pneumática</option>
+                <option>Torre verde</option>
+                <option>Torre amarela</option>
+                <option>Torre vermelha</option>
+                <option>LED reset</option>
+              </select>
+
+            </div>
+
+          </section>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- =====================================================
+         MONITOR DE I/O
+    ====================================================== -->
+
+    <section
+      id="io-monitor"
+      class="page"
+    >
+
+      <div class="page-content">
+
+        <div class="page-heading">
+
+          <div>
+            <small>Monitoramento em tempo real</small>
+            <h1>Entradas e saídas</h1>
           </div>
 
         </div>
 
-      </section>
+        <div class="monitor-grid">
 
-      <aside class="io-column">
+          <section class="page-card">
 
-        <section class="io-panel">
+            <h2>Entradas</h2>
 
-          <h2>ENTRADAS</h2>
+            <table>
 
-          <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Descrição</th>
+                  <th>Estado</th>
+                  <th>Valor</th>
+                </tr>
+              </thead>
 
-            <thead>
+              <tbody id="monitorInputTable"></tbody>
 
-              <tr>
-                <th>ID</th>
-                <th>Descrição</th>
-                <th>Estado</th>
-                <th>Valor</th>
-              </tr>
+            </table>
 
-            </thead>
+          </section>
 
-            <tbody id="inputTable"></tbody>
+          <section class="page-card">
 
-          </table>
+            <h2>Saídas</h2>
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Descrição</th>
+                  <th>Estado</th>
+                  <th>Valor</th>
+                </tr>
+              </thead>
+
+              <tbody id="monitorOutputTable"></tbody>
+
+            </table>
+
+          </section>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- =====================================================
+         DIAGNÓSTICO
+    ====================================================== -->
+
+    <section
+      id="diagnostics"
+      class="page"
+    >
+
+      <div class="page-content">
+
+        <div class="page-heading">
+
+          <div>
+            <small>Análise do sistema</small>
+            <h1>Diagnóstico</h1>
+          </div>
+
+        </div>
+
+        <div class="diagnostic-grid">
+
+          <div class="diagnostic-card success">
+            <span>✓</span>
+            <div>
+              <strong>Arquivo carregado</strong>
+              <small>Projeto de demonstração ativo.</small>
+            </div>
+          </div>
+
+          <div class="diagnostic-card warning">
+            <span>!</span>
+            <div>
+              <strong>Parser MSX pendente</strong>
+              <small>A leitura real será integrada na próxima etapa.</small>
+            </div>
+          </div>
+
+          <div class="diagnostic-card neutral">
+            <span>○</span>
+            <div>
+              <strong>Mapa de I/O</strong>
+              <small>Nenhum mapeamento definitivo salvo.</small>
+            </div>
+          </div>
+
+          <div class="diagnostic-card neutral">
+            <span>○</span>
+            <div>
+              <strong>Motor lógico</strong>
+              <small>Executando lógica temporária de demonstração.</small>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- =====================================================
+         EVENTOS
+    ====================================================== -->
+
+    <section
+      id="events-page"
+      class="page"
+    >
+
+      <div class="page-content">
+
+        <div class="page-heading">
+
+          <div>
+            <small>Histórico da simulação</small>
+            <h1>Eventos</h1>
+          </div>
+
+          <button
+            id="clearEventsButton"
+            class="secondary-page-button"
+          >
+            Limpar eventos
+          </button>
+
+        </div>
+
+        <section class="page-card">
+
+          <div
+            id="fullEvents"
+            class="full-events">
+          </div>
 
         </section>
 
-        <section class="io-panel">
+      </div>
 
-          <h2>SAÍDAS</h2>
+    </section>
 
-          <table>
+    <!-- =====================================================
+         FALHAS
+    ====================================================== -->
 
-            <thead>
+    <section
+      id="faults"
+      class="page"
+    >
 
-              <tr>
-                <th>ID</th>
-                <th>Descrição</th>
-                <th>Estado</th>
-                <th>Valor</th>
-              </tr>
+      <div class="page-content">
 
-            </thead>
+        <div class="page-heading">
 
-            <tbody id="outputTable"></tbody>
+          <div>
+            <small>Testes de diagnóstico</small>
+            <h1>Simulação de falhas</h1>
+          </div>
 
-          </table>
+        </div>
+
+        <div class="fault-grid">
+
+          <button class="fault-card">
+
+            <strong>Falha no canal 1 da emergência</strong>
+
+            <span>
+              Simula um canal que não acompanha o segundo canal.
+            </span>
+
+          </button>
+
+          <button class="fault-card">
+
+            <strong>Sensor recuado travado</strong>
+
+            <span>
+              Mantém o sensor recuado permanentemente ativo.
+            </span>
+
+          </button>
+
+          <button class="fault-card">
+
+            <strong>Sensor avançado ausente</strong>
+
+            <span>
+              Impede que o sinal de posição avançada seja acionado.
+            </span>
+
+          </button>
+
+          <button class="fault-card">
+
+            <strong>Reset permanentemente pressionado</strong>
+
+            <span>
+              Simula falha no botão de reset monitorado.
+            </span>
+
+          </button>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- =====================================================
+         AJUSTES
+    ====================================================== -->
+
+    <section
+      id="settings"
+      class="page"
+    >
+
+      <div class="page-content">
+
+        <div class="page-heading">
+
+          <div>
+            <small>Preferências da simulação</small>
+            <h1>Ajustes</h1>
+          </div>
+
+        </div>
+
+        <section class="page-card settings-card">
+
+          <label>
+
+            Tempo de avanço do cilindro
+
+            <select>
+              <option>1 segundo</option>
+              <option>2 segundos</option>
+              <option>3 segundos</option>
+              <option>5 segundos</option>
+            </select>
+
+          </label>
+
+          <label>
+
+            Estado inicial da prensa
+
+            <select>
+              <option>Cilindro recuado</option>
+              <option>Cilindro avançado</option>
+            </select>
+
+          </label>
+
+          <label class="checkbox-setting">
+
+            <input type="checkbox" checked>
+
+            Exibir atalhos do teclado
+
+          </label>
+
+          <label class="checkbox-setting">
+
+            <input type="checkbox" checked>
+
+            Exibir log de eventos em tempo real
+
+          </label>
 
         </section>
 
-      </aside>
-
-      <section class="bottom-row">
-
-        <div class="bottom-card events-card">
-
-          <h3>EVENTOS</h3>
-
-          <div id="events"></div>
-
-        </div>
-
-        <div class="bottom-card cylinder-card">
-
-          <h3>CILINDRO PNEUMÁTICO</h3>
-
-          <div class="mini-cylinder">
-
-            <div class="mini-body">
-              <span id="miniFill"></span>
-            </div>
-
-            <div class="mini-rod"></div>
-
-          </div>
-
-          <div class="progress-track">
-            <span id="positionBar"></span>
-          </div>
-
-          <strong>
-
-            Posição:
-
-            <b id="positionText">
-              RECUADO
-            </b>
-
-          </strong>
-
-        </div>
-
-        <div class="bottom-card side-view-card">
-
-          <h3>VISTA LATERAL</h3>
-
-          <div class="mini-press">
-
-            <div class="mini-top"></div>
-
-            <div class="mini-col left"></div>
-
-            <div class="mini-col right"></div>
-
-            <div class="mini-tool"></div>
-
-            <div class="mini-base"></div>
-
-          </div>
-
-        </div>
-
-      </section>
+      </div>
 
     </section>
 
