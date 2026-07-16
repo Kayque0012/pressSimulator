@@ -1917,3 +1917,39 @@ th {
   }
 
 }
+/* =========================================================
+   EMERGÊNCIA TRAVADA
+========================================================= */
+
+.emergency-button {
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.12s ease;
+}
+
+.emergency-button.active {
+  transform: translateY(8px) scale(0.96);
+
+  box-shadow:
+    0 1px 0 #7a6600,
+    inset 0 7px 10px rgba(0, 0, 0, 0.35);
+
+  filter: brightness(0.8);
+}
+
+/* =========================================================
+   MANÔMETRO SEM PRESSÃO
+========================================================= */
+
+.pressure-gauge.no-pressure .needle {
+  transform: rotate(-135deg);
+}
+
+.pressure-gauge.no-pressure {
+  filter: brightness(0.72);
+}
+
+.pressure-item.pressure-off strong {
+  color: #ff6565;
+}
