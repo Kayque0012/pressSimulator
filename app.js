@@ -858,6 +858,29 @@ function tick(now) {
 
   requestAnimationFrame(
     tick
+    const pressureAvailable =
+  !state.emergency &&
+  !state.curtainBlocked;
+
+$("pressureValue").textContent =
+  pressureAvailable
+    ? "5.2 bar"
+    : "0.0 bar";
+
+$("pressureGauge").classList.toggle(
+  "no-pressure",
+  !pressureAvailable
+);
+
+$("pressureItem").classList.toggle(
+  "pressure-off",
+  !pressureAvailable
+);
+
+$("emergency").classList.toggle(
+  "active",
+  state.emergency
+);
   );
 
 }
