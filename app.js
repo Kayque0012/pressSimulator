@@ -110,6 +110,12 @@ function evaluate() {
 
   render();
 
+updateResetLed();
+
+syncMonitorTables();
+
+syncFullEvents();
+
 }
 
 /* =========================================================
