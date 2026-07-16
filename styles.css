@@ -1409,3 +1409,511 @@ th {
   }
 
 }
+/* =========================================================
+   NAVEGAÇÃO ENTRE PÁGINAS
+========================================================= */
+
+.page {
+  display: none;
+}
+
+.page.active-page {
+  display: block;
+}
+
+.page-content {
+  padding: 24px;
+}
+
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  margin-bottom: 20px;
+}
+
+.page-heading small {
+  color: #8fa0b2;
+}
+
+.page-heading h1 {
+  margin: 4px 0 0;
+
+  font-size: 27px;
+}
+
+.page-card {
+  background: #111a24;
+
+  border: 1px solid #2c3947;
+
+  border-radius: 10px;
+
+  overflow: hidden;
+}
+
+.page-card h2 {
+  margin: 0;
+
+  padding: 15px 17px;
+
+  border-bottom: 1px solid #2c3947;
+
+  font-size: 15px;
+}
+
+.primary-page-button,
+.secondary-page-button {
+  border-radius: 8px;
+
+  padding: 11px 15px;
+
+  color: white;
+}
+
+.primary-page-button {
+  border: 1px solid #15823d;
+
+  background: #15823d;
+}
+
+.secondary-page-button {
+  border: 1px solid #425263;
+
+  background: #17222d;
+}
+
+/* =========================================================
+   AVISO DO BIMANUAL
+========================================================= */
+
+.two-hand-help {
+  position: absolute;
+
+  left: 50%;
+  bottom: 105px;
+
+  transform: translateX(-50%);
+
+  z-index: 20;
+
+  width: 215px;
+
+  padding: 10px 14px;
+
+  background: rgba(10, 18, 25, 0.93);
+
+  border: 1px solid #455566;
+
+  border-radius: 8px;
+
+  text-align: center;
+}
+
+.two-hand-help strong {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: #f5bf16;
+
+  font-size: 11px;
+}
+
+.two-hand-help > span {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #aebbc7;
+
+  font-size: 10px;
+}
+
+.two-hand-help div {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  gap: 8px;
+}
+
+.two-hand-help kbd {
+  min-width: 34px;
+
+  padding: 5px 9px;
+
+  background: #27333f;
+
+  border: 1px solid #637384;
+  border-bottom-width: 3px;
+
+  border-radius: 5px;
+
+  color: white;
+
+  font-weight: 700;
+}
+
+/* =========================================================
+   BOTÃO RESET COM LED INTEGRADO
+========================================================= */
+
+.reset-component {
+  display: grid;
+  justify-content: center;
+
+  gap: 5px;
+
+  margin-top: 10px;
+
+  text-align: center;
+}
+
+.reset-component small {
+  color: #dbe3eb;
+
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.reset-button {
+  position: relative;
+
+  width: 64px;
+  height: 64px;
+
+  border-radius: 50%;
+
+  border: 5px solid #19222b;
+
+  background: #596776;
+
+  box-shadow:
+    inset 0 -5px 0 rgba(0, 0, 0, 0.35);
+}
+
+.reset-button-face {
+  position: absolute;
+
+  inset: 8px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle at 38% 32%,
+      #56a2ff,
+      #176ac6 72%
+    );
+
+  border: 2px solid #88bfff;
+}
+
+.reset-button-led {
+  position: absolute;
+
+  width: 15px;
+  height: 15px;
+
+  right: -3px;
+  top: 3px;
+
+  border-radius: 50%;
+
+  border: 2px solid #51605b;
+
+  background: #12201a;
+}
+
+.reset-button-led.on {
+  background: #46e37d;
+
+  box-shadow:
+    0 0 13px #46e37d;
+}
+
+.reset-button-led.blinking {
+  animation:
+    resetLedBlink 0.65s infinite;
+}
+
+.reset-button.active {
+  transform: translateY(4px);
+
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+@keyframes resetLedBlink {
+
+  0%,
+  45% {
+    background: #46e37d;
+
+    box-shadow:
+      0 0 14px #46e37d;
+  }
+
+  50%,
+  100% {
+    background: #12201a;
+
+    box-shadow: none;
+  }
+
+}
+
+/* =========================================================
+   MAPA DE I/O
+========================================================= */
+
+.info-callout {
+  margin-bottom: 18px;
+
+  padding: 13px 15px;
+
+  border-left: 4px solid #f5bf16;
+
+  background: #17222d;
+
+  color: #c8d2dc;
+
+  border-radius: 6px;
+}
+
+.mapping-grid,
+.monitor-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 16px;
+}
+
+.mapping-row {
+  display: grid;
+
+  grid-template-columns:
+    minmax(160px, 0.8fr)
+    minmax(220px, 1.2fr);
+
+  gap: 15px;
+
+  align-items: center;
+
+  padding: 14px 16px;
+
+  border-bottom: 1px solid #283542;
+}
+
+.mapping-row div {
+  display: grid;
+
+  gap: 4px;
+}
+
+.mapping-row span {
+  color: #8fa0b2;
+
+  font-size: 12px;
+}
+
+.mapping-row select,
+.settings-card select {
+  width: 100%;
+
+  padding: 10px 12px;
+
+  background: #0d151d;
+
+  border: 1px solid #455565;
+
+  border-radius: 7px;
+
+  color: white;
+}
+
+/* =========================================================
+   DIAGNÓSTICO
+========================================================= */
+
+.diagnostic-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 15px;
+}
+
+.diagnostic-card {
+  display: flex;
+  align-items: center;
+
+  gap: 14px;
+
+  min-height: 100px;
+
+  padding: 17px;
+
+  background: #111a24;
+
+  border: 1px solid #2c3947;
+
+  border-radius: 9px;
+}
+
+.diagnostic-card > span {
+  display: grid;
+  place-items: center;
+
+  width: 42px;
+  height: 42px;
+
+  border-radius: 50%;
+
+  font-size: 22px;
+}
+
+.diagnostic-card div {
+  display: grid;
+
+  gap: 5px;
+}
+
+.diagnostic-card small {
+  color: #8fa0b2;
+}
+
+.diagnostic-card.success > span {
+  background: #153c24;
+
+  color: #50dd80;
+}
+
+.diagnostic-card.warning > span {
+  background: #443718;
+
+  color: #f5bf16;
+}
+
+.diagnostic-card.neutral > span {
+  background: #263441;
+
+  color: #9fb0c1;
+}
+
+/* =========================================================
+   EVENTOS
+========================================================= */
+
+.full-events {
+  min-height: 300px;
+
+  max-height: 550px;
+
+  overflow: auto;
+
+  padding: 16px;
+
+  font:
+    13px / 1.7
+    Consolas,
+    monospace;
+
+  color: #bec9d4;
+}
+
+/* =========================================================
+   FALHAS
+========================================================= */
+
+.fault-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 15px;
+}
+
+.fault-card {
+  min-height: 120px;
+
+  padding: 18px;
+
+  background: #111a24;
+
+  border: 1px solid #344352;
+
+  border-radius: 9px;
+
+  color: white;
+
+  text-align: left;
+}
+
+.fault-card:hover {
+  border-color: #e44747;
+
+  background: #171f29;
+}
+
+.fault-card strong {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #ff7777;
+}
+
+.fault-card span {
+  color: #9cacbb;
+}
+
+/* =========================================================
+   AJUSTES
+========================================================= */
+
+.settings-card {
+  display: grid;
+
+  gap: 18px;
+
+  max-width: 720px;
+
+  padding: 20px;
+}
+
+.settings-card label {
+  display: grid;
+
+  gap: 8px;
+
+  color: #cbd5df;
+}
+
+.checkbox-setting {
+  display: flex !important;
+  align-items: center;
+
+  gap: 10px !important;
+}
+
+/* =========================================================
+   RESPONSIVIDADE DAS NOVAS PÁGINAS
+========================================================= */
+
+@media (max-width: 1000px) {
+
+  .mapping-grid,
+  .monitor-grid,
+  .diagnostic-grid,
+  .fault-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
