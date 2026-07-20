@@ -647,126 +647,85 @@
             <h1>Mapa de I/O</h1>
           </div>
 
-          <button class="primary-page-button">
+          <button
+            id="saveMappingButton"
+            class="primary-page-button"
+          >
             Salvar mapeamento
           </button>
 
         </div>
 
         <div class="info-callout">
+          Associe as entradas e saídas do projeto aos componentes físicos
+          do pressSimulator. O manômetro não precisa ser mapeado: ele acompanha
+          diretamente a saída da válvula pneumática de segurança.
+        </div>
 
-          Associe cada entrada e saída detectada no projeto
-          aos componentes físicos do pressSimulator.
+        <div class="mapping-summary">
+
+          <div>
+            <span>Entradas disponíveis</span>
+            <strong id="mappingInputCount">12</strong>
+          </div>
+
+          <div>
+            <span>Saídas disponíveis</span>
+            <strong id="mappingOutputCount">8</strong>
+          </div>
+
+          <div>
+            <span>Mapeamentos concluídos</span>
+            <strong id="mappingCompletedCount">0 / 20</strong>
+          </div>
 
         </div>
 
         <div class="mapping-grid">
 
-          <section class="page-card">
+          <section class="page-card mapping-card">
 
-            <h2>Entradas detectadas</h2>
-
-            <div class="mapping-row">
-
+            <div class="mapping-card-header">
               <div>
-                <strong>I1</strong>
-                <span>Entrada digital 1</span>
+                <h2>Entradas detectadas</h2>
+                <small>Comandos e sensores da prensa</small>
               </div>
 
-              <select>
-                <option>Não mapeado</option>
-                <option>Emergência CH1</option>
-                <option>Emergência CH2</option>
-                <option>Bimanual esquerdo</option>
-                <option>Bimanual direito</option>
-                <option>Cortina CH1</option>
-                <option>Cortina CH2</option>
-                <option>Reset</option>
-                <option>Sensor recuado</option>
-                <option>Sensor avançado</option>
-                <option>Calço monitorado</option>
-              </select>
-
+              <span class="mapping-type-badge input-badge">I</span>
             </div>
 
-            <div class="mapping-row">
-
-              <div>
-                <strong>I2</strong>
-                <span>Entrada digital 2</span>
-              </div>
-
-              <select>
-                <option>Não mapeado</option>
-                <option>Emergência CH1</option>
-                <option>Emergência CH2</option>
-                <option>Bimanual esquerdo</option>
-                <option>Bimanual direito</option>
-              </select>
-
-            </div>
-
-            <div class="mapping-row">
-
-              <div>
-                <strong>I3</strong>
-                <span>Entrada digital 3</span>
-              </div>
-
-              <select>
-                <option>Não mapeado</option>
-                <option>Bimanual esquerdo</option>
-                <option>Bimanual direito</option>
-                <option>Reset</option>
-              </select>
-
-            </div>
+            <div
+              id="mappingInputs"
+              class="mapping-list"
+            ></div>
 
           </section>
 
-          <section class="page-card">
+          <section class="page-card mapping-card">
 
-            <h2>Saídas detectadas</h2>
-
-            <div class="mapping-row">
-
+            <div class="mapping-card-header">
               <div>
-                <strong>Q1</strong>
-                <span>Saída digital 1</span>
+                <h2>Saídas detectadas</h2>
+                <small>Atuadores e sinalizações da prensa</small>
               </div>
 
-              <select>
-                <option>Não mapeado</option>
-                <option>Válvula pneumática</option>
-                <option>Torre verde</option>
-                <option>Torre amarela</option>
-                <option>Torre vermelha</option>
-                <option>LED reset</option>
-              </select>
-
+              <span class="mapping-type-badge output-badge">Q</span>
             </div>
 
-            <div class="mapping-row">
-
-              <div>
-                <strong>Q2</strong>
-                <span>Saída digital 2</span>
-              </div>
-
-              <select>
-                <option>Não mapeado</option>
-                <option>Válvula pneumática</option>
-                <option>Torre verde</option>
-                <option>Torre amarela</option>
-                <option>Torre vermelha</option>
-                <option>LED reset</option>
-              </select>
-
-            </div>
+            <div
+              id="mappingOutputs"
+              class="mapping-list"
+            ></div>
 
           </section>
 
         </div>
+
+        <div
+          id="mappingSaveMessage"
+          class="mapping-save-message"
+          role="status"
+        ></div>
 
       </div>
 
