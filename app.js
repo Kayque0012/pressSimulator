@@ -7,6 +7,7 @@ const initialState = () => ({
   right: false,
   reset: false,
   ready: false,
+  safetyValve: false,
   valve: false,
   cylinder: 0
 });
@@ -35,10 +36,7 @@ function needsReset() {
 }
 
 function hasPressure() {
-  return (
-    !state.emergency &&
-    !state.curtainBlocked
-  );
+  return state.safetyValve;
 }
 
 /* =========================================================
@@ -63,6 +61,7 @@ function log(message) {
 function evaluate() {
   if (!isSafe()) {
     state.ready = false;
+    state.safetyValve = false;
     state.valve = false;
   } else {
     const twoHand =
@@ -72,10 +71,12 @@ function evaluate() {
     if (state.mode === "manual") {
       state.valve =
         state.ready &&
+        state.safetyValve &&
         twoHand;
     } else {
       if (
         state.ready &&
+        state.safetyValve &&
         twoHand &&
         state.cylinder < 0.1
       ) {
@@ -272,6 +273,44 @@ function render() {
     !state.chockInserted
   );
 
+
+  /* Válvula pneumática de segurança */
+
+  $("safetyValvePanel").classList.toggle(
+    "energized",
+    state.safetyValve
+  );
+
+  $("safetyValveBody").classList.toggle(
+    "energized",
+    state.safetyValve
+  );
+
+  $("safetyValveCoil").classList.toggle(
+    "energized",
+    state.safetyValve
+  );
+
+  $("safetyValveLed").classList.toggle(
+    "on",
+    state.safetyValve
+  );
+
+  $("safetyValveStatus").textContent =
+    state.safetyValve
+      ? "ENERGIZADA — SISTEMA PRESSURIZADO"
+      : "DESENERGIZADA — SISTEMA EXAURIDO";
+
+  $("safetyValveStatus").classList.toggle(
+    "on",
+    state.safetyValve
+  );
+
+  $("safetyValveStatus").classList.toggle(
+    "off",
+    !state.safetyValve
+  );
+
   /* Sensores */
 
   $("sensorRet").textContent =
@@ -404,31 +443,36 @@ function render() {
   const outputs = [
     [
       "Q1",
-      "Válvula pneumática",
-      state.valve
+      "Válvula pneumática de segurança",
+      state.safetyValve
     ],
     [
       "Q2",
+      "Válvula de avanço do cilindro",
+      state.valve
+    ],
+    [
+      "Q3",
       "Torre verde",
       state.ready && isSafe()
     ],
     [
-      "Q3",
+      "Q4",
       "Torre amarela",
       needsReset()
     ],
     [
-      "Q4",
+      "Q5",
       "Torre vermelha",
       !isSafe()
     ],
     [
-      "Q5",
+      "Q6",
       "LED reset",
       needsReset()
     ],
     [
-      "Q6",
+      "Q7",
       "Buzzer",
       false
     ]
@@ -615,6 +659,7 @@ $("mode").addEventListener(
 
       if (isSafe()) {
         state.ready = true;
+        state.safetyValve = true;
 
         log(
           "Reset aceito — máquina pronta"
@@ -821,6 +866,7 @@ document.addEventListener(
 
       if (isSafe()) {
         state.ready = true;
+        state.safetyValve = true;
       }
     }
 
