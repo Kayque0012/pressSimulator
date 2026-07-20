@@ -2099,3 +2099,148 @@ th {
 .safety-valve-status.off {
   color: #ff7474;
 }
+
+/* =========================================================
+   MAPA DE I/O COMPLETO
+========================================================= */
+
+.mapping-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mapping-summary > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  background: #111a24;
+  border: 1px solid #2c3947;
+  border-radius: 8px;
+}
+
+.mapping-summary span {
+  color: #93a4b5;
+  font-size: 12px;
+}
+
+.mapping-summary strong {
+  color: #f5bf16;
+  font-size: 18px;
+}
+
+.mapping-card {
+  min-width: 0;
+}
+
+.mapping-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 17px;
+  border-bottom: 1px solid #2c3947;
+}
+
+.mapping-card-header h2 {
+  padding: 0;
+  border: 0;
+}
+
+.mapping-card-header small {
+  display: block;
+  margin-top: 4px;
+  color: #8193a5;
+  font-size: 11px;
+}
+
+.mapping-type-badge {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  font-weight: 800;
+}
+
+.input-badge {
+  color: #7fb7ff;
+  background: rgba(52, 131, 230, 0.15);
+  border: 1px solid rgba(52, 131, 230, 0.45);
+}
+
+.output-badge {
+  color: #5ce28c;
+  background: rgba(57, 200, 111, 0.13);
+  border: 1px solid rgba(57, 200, 111, 0.42);
+}
+
+.mapping-list {
+  max-height: 570px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #445464 #111a24;
+}
+
+.mapping-row {
+  grid-template-columns: minmax(145px, 0.7fr) minmax(230px, 1.3fr) 25px;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.mapping-row.mapped {
+  background: rgba(45, 174, 104, 0.055);
+}
+
+.mapping-signal-info strong {
+  color: #eef4fb;
+  font-size: 16px;
+}
+
+.mapping-row-status {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #758596;
+  border: 1px solid #495868;
+  font-size: 12px;
+}
+
+.mapping-row-status.mapped {
+  color: #eafff0;
+  background: #208a49;
+  border-color: #39c86f;
+  box-shadow: 0 0 10px rgba(57, 200, 111, 0.24);
+}
+
+.mapping-save-message {
+  min-height: 22px;
+  margin-top: 12px;
+  color: #4cdd7f;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.mapping-save-message.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 1000px) {
+  .mapping-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .mapping-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mapping-row-status {
+    display: none;
+  }
+}
