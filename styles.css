@@ -1953,3 +1953,149 @@ th {
 .pressure-item.pressure-off strong {
   color: #ff6565;
 }
+
+
+/* =========================================================
+   VÁLVULA PNEUMÁTICA DE SEGURANÇA
+========================================================= */
+
+.safety-valve-panel {
+  margin-top: 14px;
+  padding: 11px;
+  background: linear-gradient(180deg, #27333d, #171f27);
+  border: 1px solid #536272;
+  border-radius: 7px;
+  text-align: center;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.safety-valve-panel.energized {
+  border-color: #38c978;
+  box-shadow: 0 0 14px rgba(56, 201, 120, 0.18);
+}
+
+.safety-valve-title strong {
+  display: block;
+  font-size: 10px;
+  color: #eef4fb;
+}
+
+.safety-valve-title small {
+  display: block;
+  margin-top: 3px;
+  color: #91a2b2;
+  font-size: 8px;
+}
+
+.safety-valve-visual {
+  position: relative;
+  width: 118px;
+  height: 72px;
+  margin: 10px auto 8px;
+}
+
+.safety-valve-body {
+  position: absolute;
+  left: 27px;
+  top: 16px;
+  width: 62px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #707c86, #3f4952);
+  border: 2px solid #8d99a4;
+  border-radius: 4px;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.safety-valve-body.energized {
+  background: linear-gradient(180deg, #3f9b68, #246844);
+  border-color: #62dc93;
+}
+
+.valve-symbol {
+  font-size: 23px;
+  font-weight: 800;
+  color: #eaf1f6;
+}
+
+.valve-air-port {
+  position: absolute;
+  top: 25px;
+  width: 24px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: #111820;
+  border: 1px solid #596a79;
+  color: #c9d4dd;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.valve-air-port.inlet {
+  left: 0;
+}
+
+.valve-air-port.outlet {
+  right: 0;
+}
+
+.safety-valve-coil {
+  position: absolute;
+  right: 20px;
+  top: 4px;
+  width: 28px;
+  height: 18px;
+  border-radius: 3px;
+  background: #302329;
+  border: 1px solid #67525b;
+}
+
+.safety-valve-coil.energized {
+  background: #244f35;
+  border-color: #49c97b;
+}
+
+.safety-valve-coil span {
+  position: absolute;
+  right: -6px;
+  top: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #172019;
+  border: 1px solid #53615a;
+}
+
+.safety-valve-coil span.on {
+  background: #47e285;
+  box-shadow: 0 0 10px #47e285;
+}
+
+.valve-exhaust {
+  position: absolute;
+  left: 38px;
+  bottom: 0;
+  width: 42px;
+  padding-top: 4px;
+  border-top: 2px dashed #7c8a96;
+  color: #909eaa;
+  font-size: 7px;
+}
+
+.safety-valve-status {
+  display: block;
+  min-height: 28px;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.safety-valve-status.on {
+  color: #4ee28b;
+}
+
+.safety-valve-status.off {
+  color: #ff7474;
+}
