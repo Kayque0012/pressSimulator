@@ -17,6 +17,42 @@ let state = initialState();
 const $ = id => document.getElementById(id);
 
 /* =========================================================
+   COMPONENTES DISPONÍVEIS PARA O MAPEAMENTO
+========================================================= */
+
+const simulatorInputs = [
+  { id: "I1", name: "Emergência CH1" },
+  { id: "I2", name: "Emergência CH2" },
+  { id: "I3", name: "Bimanual esquerdo" },
+  { id: "I4", name: "Bimanual direito" },
+  { id: "I5", name: "Cortina de luz CH1" },
+  { id: "I6", name: "Cortina de luz CH2" },
+  { id: "I7", name: "Botão reset" },
+  { id: "I8", name: "Sensor cilindro recuado" },
+  { id: "I9", name: "Sensor cilindro avançado" },
+  { id: "I10", name: "Calço monitorado" },
+  { id: "I11", name: "Seletora manual" },
+  { id: "I12", name: "Seletora automático" }
+];
+
+const simulatorOutputs = [
+  { id: "Q1", name: "Válvula pneumática de segurança" },
+  { id: "Q2", name: "Válvula de avanço do cilindro" },
+  { id: "Q3", name: "Torre verde" },
+  { id: "Q4", name: "Torre amarela" },
+  { id: "Q5", name: "Torre vermelha" },
+  { id: "Q6", name: "LED do reset" },
+  { id: "Q7", name: "LED do calço monitorado" },
+  { id: "Q8", name: "Buzzer" }
+];
+
+const mappingTargets = {
+  inputs: simulatorInputs.map(item => item.name),
+  outputs: simulatorOutputs.map(item => item.name)
+};
+
+
+/* =========================================================
    ESTADO DA SIMULAÇÃO
 ========================================================= */
 
@@ -373,109 +409,29 @@ function render() {
   /* I/O */
 
   const inputs = [
-    [
-      "I1",
-      "Emergência CH1",
-      !state.emergency
-    ],
-    [
-      "I2",
-      "Emergência CH2",
-      !state.emergency
-    ],
-    [
-      "I3",
-      "Bimanual esquerdo",
-      state.left
-    ],
-    [
-      "I4",
-      "Bimanual direito",
-      state.right
-    ],
-    [
-      "I5",
-      "Cortina de luz CH1",
-      !state.curtainBlocked
-    ],
-    [
-      "I6",
-      "Cortina de luz CH2",
-      !state.curtainBlocked
-    ],
-    [
-      "I7",
-      "Calço monitorado",
-      !state.chockInserted
-    ],
-    [
-      "I8",
-      "Sensor recuado",
-      sensorRetracted
-    ],
-    [
-      "I9",
-      "Sensor avançado",
-      sensorExtended
-    ],
-    [
-      "I10",
-      "Seletora manual",
-      state.mode === "manual"
-    ],
-    [
-      "I11",
-      "Seletora automático",
-      state.mode === "automatic"
-    ],
-    [
-      "I12",
-      "Reset",
-      state.reset
-    ],
-    [
-      "I13",
-      "Pressão OK",
-      pressureAvailable
-    ]
+    ["I1", "Emergência CH1", !state.emergency],
+    ["I2", "Emergência CH2", !state.emergency],
+    ["I3", "Bimanual esquerdo", state.left],
+    ["I4", "Bimanual direito", state.right],
+    ["I5", "Cortina de luz CH1", !state.curtainBlocked],
+    ["I6", "Cortina de luz CH2", !state.curtainBlocked],
+    ["I7", "Botão reset", state.reset],
+    ["I8", "Sensor cilindro recuado", sensorRetracted],
+    ["I9", "Sensor cilindro avançado", sensorExtended],
+    ["I10", "Calço monitorado", !state.chockInserted],
+    ["I11", "Seletora manual", state.mode === "manual"],
+    ["I12", "Seletora automático", state.mode === "automatic"]
   ];
 
   const outputs = [
-    [
-      "Q1",
-      "Válvula pneumática de segurança",
-      state.safetyValve
-    ],
-    [
-      "Q2",
-      "Válvula de avanço do cilindro",
-      state.valve
-    ],
-    [
-      "Q3",
-      "Torre verde",
-      state.ready && isSafe()
-    ],
-    [
-      "Q4",
-      "Torre amarela",
-      needsReset()
-    ],
-    [
-      "Q5",
-      "Torre vermelha",
-      !isSafe()
-    ],
-    [
-      "Q6",
-      "LED reset",
-      needsReset()
-    ],
-    [
-      "Q7",
-      "Buzzer",
-      false
-    ]
+    ["Q1", "Válvula pneumática de segurança", state.safetyValve],
+    ["Q2", "Válvula de avanço do cilindro", state.valve],
+    ["Q3", "Torre verde", state.ready && isSafe()],
+    ["Q4", "Torre amarela", needsReset()],
+    ["Q5", "Torre vermelha", !isSafe()],
+    ["Q6", "LED do reset", needsReset()],
+    ["Q7", "LED do calço monitorado", !state.chockInserted],
+    ["Q8", "Buzzer", false]
   ];
 
   renderTable(
@@ -713,6 +669,140 @@ $("msxFile").addEventListener(
       `Arquivo selecionado: ${file.name}`
     );
   }
+);
+
+/* =========================================================
+   MAPA DE I/O
+========================================================= */
+
+function createMappingOptions(targets, selectedValue = "") {
+  const defaultOption = `
+    <option value="">Não mapeado</option>
+  `;
+
+  const options = targets
+    .map(target => `
+      <option value="${target}" ${target === selectedValue ? "selected" : ""}>
+        ${target}
+      </option>
+    `)
+    .join("");
+
+  return defaultOption + options;
+}
+
+function renderMappingRows(containerId, signals, type) {
+  const container = $(containerId);
+
+  if (!container) {
+    return;
+  }
+
+  const savedMapping = JSON.parse(
+    localStorage.getItem("pressSimulatorIoMapping") || "{}"
+  );
+
+  const targets = mappingTargets[type];
+
+  container.innerHTML = signals
+    .map(signal => {
+      const selectedValue = savedMapping[signal.id] || "";
+
+      return `
+        <div class="mapping-row" data-signal-id="${signal.id}">
+          <div class="mapping-signal-info">
+            <strong>${signal.id}</strong>
+            <span>${type === "inputs" ? "Entrada" : "Saída"} digital ${signal.id.replace(/\D/g, "")}</span>
+          </div>
+
+          <select
+            class="mapping-select"
+            data-signal-id="${signal.id}"
+            aria-label="Mapear ${signal.id}"
+          >
+            ${createMappingOptions(targets, selectedValue)}
+          </select>
+
+          <span class="mapping-row-status ${selectedValue ? "mapped" : ""}">
+            ${selectedValue ? "✓" : "○"}
+          </span>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function updateMappingProgress() {
+  const selects = document.querySelectorAll(".mapping-select");
+  const completed = [...selects].filter(select => select.value).length;
+  const total = selects.length;
+
+  if ($("mappingCompletedCount")) {
+    $("mappingCompletedCount").textContent = `${completed} / ${total}`;
+  }
+
+  selects.forEach(select => {
+    const row = select.closest(".mapping-row");
+    const status = row?.querySelector(".mapping-row-status");
+    const mapped = Boolean(select.value);
+
+    row?.classList.toggle("mapped", mapped);
+
+    if (status) {
+      status.classList.toggle("mapped", mapped);
+      status.textContent = mapped ? "✓" : "○";
+    }
+  });
+}
+
+function initializeMappingPage() {
+  renderMappingRows("mappingInputs", simulatorInputs, "inputs");
+  renderMappingRows("mappingOutputs", simulatorOutputs, "outputs");
+
+  if ($("mappingInputCount")) {
+    $("mappingInputCount").textContent = simulatorInputs.length;
+  }
+
+  if ($("mappingOutputCount")) {
+    $("mappingOutputCount").textContent = simulatorOutputs.length;
+  }
+
+  document.querySelectorAll(".mapping-select").forEach(select => {
+    select.addEventListener("change", updateMappingProgress);
+  });
+
+  updateMappingProgress();
+}
+
+function saveIoMapping() {
+  const mapping = {};
+
+  document.querySelectorAll(".mapping-select").forEach(select => {
+    mapping[select.dataset.signalId] = select.value;
+  });
+
+  localStorage.setItem(
+    "pressSimulatorIoMapping",
+    JSON.stringify(mapping)
+  );
+
+  const message = $("mappingSaveMessage");
+
+  if (message) {
+    message.textContent = "Mapeamento salvo neste navegador.";
+    message.classList.add("visible");
+
+    window.setTimeout(() => {
+      message.classList.remove("visible");
+    }, 2500);
+  }
+
+  log("Mapeamento de I/O salvo");
+}
+
+$("saveMappingButton")?.addEventListener(
+  "click",
+  saveIoMapping
 );
 
 /* =========================================================
@@ -959,6 +1049,8 @@ function tick(now) {
 /* =========================================================
    INICIALIZAÇÃO
 ========================================================= */
+
+initializeMappingPage();
 
 log("Sistema iniciado");
 log("Modo demonstração ativo");
