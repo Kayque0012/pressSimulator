@@ -134,6 +134,462 @@ function refreshInputBus() {
 }
 
 /* =========================================================
+   PARSER E MOTOR MSX — ALFA
+========================================================= */
+
+let msxProject = null;
+let msxRuntime = null;
+let activeProgramMode = "demo";
+
+const BLOCK_ALIASES = {
+  INPUT: ["INPUT", "DIGITALINPUT", "IN", "SAFEINPUT", "LOGICINPUT"],
+  OUTPUT: ["OUTPUT", "DIGITALOUTPUT", "OUT", "SAFEOUTPUT", "LOGICOUTPUT"],
+  AND: ["AND", "ANDGATE", "LOGICAND"],
+  OR: ["OR", "ORGATE", "LOGICOR"],
+  XOR: ["XOR", "XORGATE", "LOGICXOR"],
+  NOT: ["NOT", "INVERTER", "NEGATE"],
+  NAND: ["NAND"],
+  NOR: ["NOR"],
+  RS: ["RS", "RSLATCH", "RESETSET"],
+  SR: ["SR", "SRLATCH", "SETRESET"],
+  R_TRIG: ["RTRIG", "R_TRIG", "RISINGEDGE", "POSEDGE", "POSITIVEEDGE"],
+  F_TRIG: ["FTRIG", "F_TRIG", "FALLINGEDGE", "NEGEDGE", "NEGATIVEEDGE"],
+  TON: ["TON", "ONDELAY", "TIMERON", "TIMERONDELAY"],
+  TOF: ["TOF", "OFFDELAY", "TIMEROFF", "TIMEROFFDELAY"],
+  TP: ["TP", "PULSE", "MONOFLOP", "MONOSTABLE"],
+  CONST_TRUE: ["TRUE", "CONSTTRUE", "CONSTANTTRUE"],
+  CONST_FALSE: ["FALSE", "CONSTFALSE", "CONSTANTFALSE"]
+};
+
+function normalizeToken(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_]/g, "")
+    .toUpperCase();
+}
+
+function classifyBlock(rawType) {
+  const token = normalizeToken(rawType);
+
+  for (const [canonical, aliases] of Object.entries(BLOCK_ALIASES)) {
+    if (aliases.some(alias => token === normalizeToken(alias) || token.includes(normalizeToken(alias)))) {
+      return canonical;
+    }
+  }
+
+  return "UNKNOWN";
+}
+
+function firstAttribute(element, names) {
+  for (const name of names) {
+    if (element.hasAttribute(name)) {
+      return element.getAttribute(name);
+    }
+
+    const found = [...element.attributes].find(attribute =>
+      normalizeToken(attribute.name) === normalizeToken(name)
+    );
+
+    if (found) {
+      return found.value;
+    }
+  }
+
+  return null;
+}
+
+function leafChildValues(element) {
+  const values = {};
+
+  [...element.children].forEach(child => {
+    if (child.children.length === 0) {
+      const text = child.textContent?.trim();
+      if (text) values[child.tagName] = text;
+    }
+  });
+
+  return values;
+}
+
+function readElementParameters(element) {
+  const parameters = {};
+
+  [...element.attributes].forEach(attribute => {
+    parameters[attribute.name] = attribute.value;
+  });
+
+  return { ...parameters, ...leafChildValues(element) };
+}
+
+function parseDurationMs(value, fallback = 0) {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "number") return value;
+
+  const text = String(value).trim().toUpperCase().replace(",", ".");
+
+  const iso = text.match(/^PT(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+  if (iso) {
+    return ((Number(iso[1] || 0) * 3600) + (Number(iso[2] || 0) * 60) + Number(iso[3] || 0)) * 1000;
+  }
+
+  const unit = text.match(/^(-?\d+(?:\.\d+)?)\s*(MS|S|SEC|M|MIN)?$/);
+  if (!unit) return fallback;
+
+  const number = Number(unit[1]);
+  const suffix = unit[2] || "MS";
+  if (suffix === "S" || suffix === "SEC") return number * 1000;
+  if (suffix === "M" || suffix === "MIN") return number * 60000;
+  return number;
+}
+
+function findParameter(parameters, candidates, fallback = null) {
+  const entries = Object.entries(parameters);
+
+  for (const candidate of candidates) {
+    const found = entries.find(([key]) => normalizeToken(key) === normalizeToken(candidate));
+    if (found) return found[1];
+  }
+
+  return fallback;
+}
+
+function parseEndpoint(raw) {
+  const text = String(raw || "").trim();
+  const match = text.match(/^(.+?)[.:/\\](.+)$/);
+
+  if (match) {
+    return { blockId: match[1], port: match[2] };
+  }
+
+  return { blockId: text, port: "OUT" };
+}
+
+function decodeProjectBuffer(buffer) {
+  const bytes = new Uint8Array(buffer);
+
+  if (bytes[0] === 0x50 && bytes[1] === 0x4b) {
+    throw new Error("Este MSX parece compactado em ZIP. Precisaremos adicionar o descompactador na próxima calibração.");
+  }
+
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder("utf-16le").decode(buffer);
+  }
+
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder("utf-16be").decode(buffer);
+  }
+
+  return new TextDecoder("utf-8").decode(buffer);
+}
+
+function detectBlockElements(xml) {
+  const all = [...xml.querySelectorAll("*")];
+
+  return all.filter(element => {
+    const tag = normalizeToken(element.tagName);
+    const hasType = firstAttribute(element, ["type", "blockType", "function", "class", "kind", "name"]);
+    const hasId = firstAttribute(element, ["id", "uid", "guid", "instanceId", "blockId"]);
+
+    return hasId && hasType && (
+      tag.includes("BLOCK") ||
+      tag.includes("FUNCTION") ||
+      tag.includes("ELEMENT") ||
+      classifyBlock(hasType) !== "UNKNOWN"
+    );
+  });
+}
+
+function detectConnections(xml) {
+  const all = [...xml.querySelectorAll("*")];
+  const connections = [];
+
+  all.forEach((element, index) => {
+    const tag = normalizeToken(element.tagName);
+    if (!["CONNECTION", "CONNECT", "WIRE", "LINK", "EDGE"].some(word => tag.includes(word))) return;
+
+    const parameters = readElementParameters(element);
+    const sourceRaw = findParameter(parameters, ["source", "from", "src", "sourceId", "fromBlock"]);
+    const targetRaw = findParameter(parameters, ["target", "to", "dst", "targetId", "toBlock"]);
+
+    if (!sourceRaw || !targetRaw) return;
+
+    const sourcePort = findParameter(parameters, ["sourcePort", "fromPort", "srcPort"], null);
+    const targetPort = findParameter(parameters, ["targetPort", "toPort", "dstPort"], null);
+    const source = parseEndpoint(sourceRaw);
+    const target = parseEndpoint(targetRaw);
+
+    if (sourcePort) source.port = sourcePort;
+    if (targetPort) target.port = targetPort;
+
+    connections.push({ id: `C${index + 1}`, source, target });
+  });
+
+  return connections;
+}
+
+function extractAddress(parameters, direction) {
+  const candidates = direction === "input"
+    ? ["address", "channel", "input", "inputAddress", "io", "name"]
+    : ["address", "channel", "output", "outputAddress", "io", "name"];
+
+  const raw = findParameter(parameters, candidates, "");
+  const match = String(raw).toUpperCase().match(direction === "input" ? /I\s*0*(\d+)/ : /Q\s*0*(\d+)/);
+  return match ? `${direction === "input" ? "I" : "Q"}${Number(match[1])}` : null;
+}
+
+function parseMsxXml(xmlText, fileName = "projeto.msx") {
+  const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+  const parserError = xml.querySelector("parsererror");
+
+  if (parserError) {
+    throw new Error("O arquivo não contém um XML válido ou usa uma codificação ainda não reconhecida.");
+  }
+
+  const blocks = detectBlockElements(xml).map((element, index) => {
+    const parameters = readElementParameters(element);
+    const id = firstAttribute(element, ["id", "uid", "guid", "instanceId", "blockId"]) || `B${index + 1}`;
+    const rawType = firstAttribute(element, ["type", "blockType", "function", "class", "kind", "name"]) || element.tagName;
+    const type = classifyBlock(rawType);
+    const direction = type === "INPUT" ? "input" : type === "OUTPUT" ? "output" : null;
+
+    return {
+      id: String(id),
+      type,
+      rawType: String(rawType),
+      name: firstAttribute(element, ["label", "displayName", "description", "name"]) || String(rawType),
+      address: direction ? extractAddress(parameters, direction) : null,
+      parameters
+    };
+  });
+
+  const connections = detectConnections(xml);
+  const supportedBlocks = blocks.filter(block => block.type !== "UNKNOWN");
+  const unknownBlocks = blocks.filter(block => block.type === "UNKNOWN");
+
+  return {
+    fileName,
+    blocks,
+    connections,
+    inputs: blocks.filter(block => block.type === "INPUT"),
+    outputs: blocks.filter(block => block.type === "OUTPUT"),
+    supportedBlocks,
+    unknownBlocks,
+    parsedAt: new Date().toISOString()
+  };
+}
+
+class MsxRuntime {
+  constructor(project) {
+    this.project = project;
+    this.memory = new Map();
+    this.values = new Map();
+    this.incoming = new Map();
+
+    project.connections.forEach(connection => {
+      const list = this.incoming.get(connection.target.blockId) || [];
+      list.push(connection);
+      this.incoming.set(connection.target.blockId, list);
+    });
+  }
+
+  reset() {
+    this.memory.clear();
+    this.values.clear();
+  }
+
+  getInputs(block) {
+    const connections = this.incoming.get(block.id) || [];
+    const inputs = {};
+
+    connections.forEach((connection, index) => {
+      const sourceValue = Boolean(this.values.get(connection.source.blockId));
+      inputs[normalizeToken(connection.target.port || `IN${index + 1}`)] = sourceValue;
+      inputs[`IN${index + 1}`] = sourceValue;
+    });
+
+    return inputs;
+  }
+
+  evaluateBlock(block, inputBusSnapshot, now) {
+    const inputs = this.getInputs(block);
+    const values = Object.values(inputs);
+    const first = values[0] ?? false;
+    const memory = this.memory.get(block.id) || {};
+    let output = false;
+
+    switch (block.type) {
+      case "INPUT":
+        output = Boolean(inputBusSnapshot[block.address]);
+        break;
+      case "OUTPUT":
+        output = first;
+        break;
+      case "AND":
+        output = values.length > 0 && values.every(Boolean);
+        break;
+      case "OR":
+        output = values.some(Boolean);
+        break;
+      case "XOR":
+        output = values.filter(Boolean).length % 2 === 1;
+        break;
+      case "NOT":
+        output = !first;
+        break;
+      case "NAND":
+        output = !(values.length > 0 && values.every(Boolean));
+        break;
+      case "NOR":
+        output = !values.some(Boolean);
+        break;
+      case "CONST_TRUE":
+        output = true;
+        break;
+      case "CONST_FALSE":
+        output = false;
+        break;
+      case "R_TRIG":
+        output = first && !Boolean(memory.previous);
+        memory.previous = first;
+        break;
+      case "F_TRIG":
+        output = !first && Boolean(memory.previous);
+        memory.previous = first;
+        break;
+      case "RS": {
+        const set = inputs.S ?? inputs.SET ?? values[0] ?? false;
+        const reset = inputs.R ?? inputs.RESET ?? values[1] ?? false;
+        memory.q = reset ? false : set ? true : Boolean(memory.q);
+        output = memory.q;
+        break;
+      }
+      case "SR": {
+        const set = inputs.S ?? inputs.SET ?? values[0] ?? false;
+        const reset = inputs.R ?? inputs.RESET ?? values[1] ?? false;
+        memory.q = set ? true : reset ? false : Boolean(memory.q);
+        output = memory.q;
+        break;
+      }
+      case "TON": {
+        const preset = parseDurationMs(findParameter(block.parameters, ["PT", "time", "delay", "preset"], 0));
+        if (first) {
+          if (!memory.startedAt) memory.startedAt = now;
+          output = now - memory.startedAt >= preset;
+        } else {
+          memory.startedAt = null;
+          output = false;
+        }
+        break;
+      }
+      case "TOF": {
+        const preset = parseDurationMs(findParameter(block.parameters, ["PT", "time", "delay", "preset"], 0));
+        if (first) {
+          memory.offStartedAt = null;
+          output = true;
+        } else {
+          if (!memory.offStartedAt) memory.offStartedAt = now;
+          output = now - memory.offStartedAt < preset;
+        }
+        break;
+      }
+      case "TP": {
+        const preset = parseDurationMs(findParameter(block.parameters, ["PT", "time", "pulse", "preset"], 0));
+        const rising = first && !Boolean(memory.previous);
+        memory.previous = first;
+        if (rising) memory.pulseUntil = now + preset;
+        output = now < Number(memory.pulseUntil || 0);
+        break;
+      }
+      default:
+        output = false;
+    }
+
+    this.memory.set(block.id, memory);
+    this.values.set(block.id, Boolean(output));
+    return Boolean(output);
+  }
+
+  scan(inputBusSnapshot) {
+    const now = performance.now();
+    const outputSnapshot = createBooleanBus(simulatorOutputs);
+
+    this.project.blocks.filter(block => block.type === "INPUT").forEach(block => {
+      this.evaluateBlock(block, inputBusSnapshot, now);
+    });
+
+    const processBlocks = this.project.blocks.filter(block => !["INPUT", "OUTPUT"].includes(block.type));
+    const passes = Math.max(2, Math.min(processBlocks.length + 1, 30));
+
+    for (let pass = 0; pass < passes; pass += 1) {
+      let changed = false;
+
+      processBlocks.forEach(block => {
+        const before = this.values.get(block.id);
+        const after = this.evaluateBlock(block, inputBusSnapshot, now);
+        if (before !== after) changed = true;
+      });
+
+      if (!changed) break;
+    }
+
+    this.project.blocks.filter(block => block.type === "OUTPUT").forEach(block => {
+      const value = this.evaluateBlock(block, inputBusSnapshot, now);
+      if (block.address && block.address in outputSnapshot) {
+        outputSnapshot[block.address] = value;
+      }
+    });
+
+    return outputSnapshot;
+  }
+}
+
+async function loadMsxFile(file) {
+  const buffer = await file.arrayBuffer();
+  const xmlText = decodeProjectBuffer(buffer);
+  const project = parseMsxXml(xmlText, file.name);
+
+  if (project.blocks.length === 0) {
+    throw new Error("Nenhum bloco foi identificado. Precisamos calibrar o parser com a estrutura deste MSX.");
+  }
+
+  msxProject = project;
+  msxRuntime = new MsxRuntime(project);
+  activeProgramMode = "msx";
+
+  return project;
+}
+
+function runActiveProgram() {
+  if (activeProgramMode === "msx" && msxRuntime) {
+    outputBus = msxRuntime.scan(inputBus);
+    return;
+  }
+
+  runDemoProgram();
+}
+
+function reportMsxProject(project) {
+  const summary = [
+    `${project.blocks.length} blocos`,
+    `${project.connections.length} conexões`,
+    `${project.inputs.length} entradas`,
+    `${project.outputs.length} saídas`,
+    `${project.unknownBlocks.length} não reconhecidos`
+  ].join(" • ");
+
+  log(`MSX analisado: ${summary}`);
+
+  if (project.unknownBlocks.length > 0) {
+    console.table(project.unknownBlocks.map(block => ({
+      id: block.id,
+      tipoOriginal: block.rawType,
+      nome: block.name
+    })));
+  }
+}
+
+/* =========================================================
    PROGRAMA DEMONSTRATIVO — SUBSTITUÍDO PELO MSX NO FUTURO
 ========================================================= */
 
@@ -220,7 +676,7 @@ function applyOutputBus() {
 
 function evaluate() {
   refreshInputBus();
-  runDemoProgram();
+  runActiveProgram();
   applyOutputBus();
   render();
 }
@@ -446,7 +902,7 @@ $("mode")?.addEventListener("change", event => {
   evaluate();
 });
 
-$("msxFile")?.addEventListener("change", event => {
+$("msxFile")?.addEventListener("change", async event => {
   const file = event.target.files[0];
 
   if (!file) {
@@ -454,7 +910,20 @@ $("msxFile")?.addEventListener("change", event => {
   }
 
   $("projectName").textContent = file.name;
-  log(`Arquivo selecionado: ${file.name}`);
+  log(`Lendo arquivo: ${file.name}`);
+
+  try {
+    const project = await loadMsxFile(file);
+    reportMsxProject(project);
+    log("Modo MSX ativado");
+    evaluate();
+  } catch (error) {
+    activeProgramMode = "demo";
+    msxProject = null;
+    msxRuntime = null;
+    console.error(error);
+    log(`Falha ao carregar MSX: ${error.message}`);
+  }
 });
 
 /* =========================================================
