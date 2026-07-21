@@ -1,3 +1,46 @@
+const $ = id => document.getElementById(id);
+
+/* =========================================================
+   DEFINIÇÃO DOS COMPONENTES FÍSICOS
+========================================================= */
+
+const simulatorInputs = [
+  { id: "I1", key: "emergencyCH1", name: "Emergência CH1" },
+  { id: "I2", key: "emergencyCH2", name: "Emergência CH2" },
+  { id: "I3", key: "leftHand", name: "Bimanual esquerdo" },
+  { id: "I4", key: "rightHand", name: "Bimanual direito" },
+  { id: "I5", key: "curtainCH1", name: "Cortina de luz CH1" },
+  { id: "I6", key: "curtainCH2", name: "Cortina de luz CH2" },
+  { id: "I7", key: "reset", name: "Botão reset" },
+  { id: "I8", key: "sensorRetracted", name: "Sensor cilindro recuado" },
+  { id: "I9", key: "sensorExtended", name: "Sensor cilindro avançado" },
+  { id: "I10", key: "chockSafe", name: "Calço monitorado" },
+  { id: "I11", key: "manualMode", name: "Seletora manual" },
+  { id: "I12", key: "automaticMode", name: "Seletora automático" }
+];
+
+const simulatorOutputs = [
+  { id: "Q1", key: "safetyValve", name: "Válvula pneumática de segurança" },
+  { id: "Q2", key: "cylinderValve", name: "Válvula de avanço do cilindro" },
+  { id: "Q3", key: "towerGreen", name: "Torre verde" },
+  { id: "Q4", key: "towerYellow", name: "Torre amarela" },
+  { id: "Q5", key: "towerRed", name: "Torre vermelha" },
+  { id: "Q6", key: "resetLed", name: "LED do reset" },
+  { id: "Q7", key: "chockLed", name: "LED do calço monitorado" },
+  { id: "Q8", key: "buzzer", name: "Buzzer" }
+];
+
+const defaultIoMapping = {
+  inputs: Object.fromEntries(simulatorInputs.map(item => [item.id, item.key])),
+  outputs: Object.fromEntries(simulatorOutputs.map(item => [item.id, item.key]))
+};
+
+const STORAGE_KEY = "pressSimulatorIoMappingV2";
+
+/* =========================================================
+   ESTADO FÍSICO, BARRAMENTOS E MEMÓRIA DO PROGRAMA
+========================================================= */
+
 const initialState = () => ({
   emergency: false,
   curtainBlocked: false,
@@ -6,73 +49,180 @@ const initialState = () => ({
   left: false,
   right: false,
   reset: false,
-  ready: false,
+  cylinder: 0,
+
   safetyValve: false,
-  valve: false,
-  cylinder: 0
+  cylinderValve: false,
+  towerGreen: false,
+  towerYellow: false,
+  towerRed: false,
+  resetLed: false,
+  chockLed: false,
+  buzzer: false
 });
 
 let state = initialState();
-
-const $ = id => document.getElementById(id);
-
-/* =========================================================
-   COMPONENTES DISPONÍVEIS PARA O MAPEAMENTO
-========================================================= */
-
-const simulatorInputs = [
-  { id: "I1", name: "Emergência CH1" },
-  { id: "I2", name: "Emergência CH2" },
-  { id: "I3", name: "Bimanual esquerdo" },
-  { id: "I4", name: "Bimanual direito" },
-  { id: "I5", name: "Cortina de luz CH1" },
-  { id: "I6", name: "Cortina de luz CH2" },
-  { id: "I7", name: "Botão reset" },
-  { id: "I8", name: "Sensor cilindro recuado" },
-  { id: "I9", name: "Sensor cilindro avançado" },
-  { id: "I10", name: "Calço monitorado" },
-  { id: "I11", name: "Seletora manual" },
-  { id: "I12", name: "Seletora automático" }
-];
-
-const simulatorOutputs = [
-  { id: "Q1", name: "Válvula pneumática de segurança" },
-  { id: "Q2", name: "Válvula de avanço do cilindro" },
-  { id: "Q3", name: "Torre verde" },
-  { id: "Q4", name: "Torre amarela" },
-  { id: "Q5", name: "Torre vermelha" },
-  { id: "Q6", name: "LED do reset" },
-  { id: "Q7", name: "LED do calço monitorado" },
-  { id: "Q8", name: "Buzzer" }
-];
-
-const mappingTargets = {
-  inputs: simulatorInputs.map(item => item.name),
-  outputs: simulatorOutputs.map(item => item.name)
+let ioMapping = loadIoMapping();
+let inputBus = createBooleanBus(simulatorInputs);
+let outputBus = createBooleanBus(simulatorOutputs);
+let programMemory = {
+  ready: false,
+  automaticCycle: false,
+  previousReset: false
 };
 
+function createBooleanBus(definitions) {
+  return Object.fromEntries(definitions.map(item => [item.id, false]));
+}
+
+function cloneDefaultMapping() {
+  return {
+    inputs: { ...defaultIoMapping.inputs },
+    outputs: { ...defaultIoMapping.outputs }
+  };
+}
+
+function loadIoMapping() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+
+    if (!saved || typeof saved !== "object") {
+      return cloneDefaultMapping();
+    }
+
+    return {
+      inputs: { ...defaultIoMapping.inputs, ...(saved.inputs || {}) },
+      outputs: { ...defaultIoMapping.outputs, ...(saved.outputs || {}) }
+    };
+  } catch (error) {
+    console.warn("Mapeamento inválido. Restaurando padrão.", error);
+    return cloneDefaultMapping();
+  }
+}
 
 /* =========================================================
-   ESTADO DA SIMULAÇÃO
+   AQUISIÇÃO DAS ENTRADAS FÍSICAS
 ========================================================= */
 
-function isSafe() {
-  return (
-    !state.emergency &&
-    !state.curtainBlocked &&
-    !state.chockInserted
-  );
+function getPhysicalInputStates() {
+  const sensorRetracted = state.cylinder < 0.08;
+  const sensorExtended = state.cylinder > 0.92;
+
+  return {
+    emergencyCH1: !state.emergency,
+    emergencyCH2: !state.emergency,
+    leftHand: state.left,
+    rightHand: state.right,
+    curtainCH1: !state.curtainBlocked,
+    curtainCH2: !state.curtainBlocked,
+    reset: state.reset,
+    sensorRetracted,
+    sensorExtended,
+    chockSafe: !state.chockInserted,
+    manualMode: state.mode === "manual",
+    automaticMode: state.mode === "automatic"
+  };
 }
 
-function needsReset() {
-  return (
-    isSafe() &&
-    !state.ready
-  );
+function refreshInputBus() {
+  const physicalInputs = getPhysicalInputStates();
+
+  simulatorInputs.forEach(signal => {
+    const mappedComponent = ioMapping.inputs[signal.id];
+    inputBus[signal.id] = Boolean(physicalInputs[mappedComponent]);
+  });
 }
 
-function hasPressure() {
-  return state.safetyValve;
+/* =========================================================
+   PROGRAMA DEMONSTRATIVO — SUBSTITUÍDO PELO MSX NO FUTURO
+========================================================= */
+
+function runDemoProgram() {
+  const safe =
+    inputBus.I1 &&
+    inputBus.I2 &&
+    inputBus.I5 &&
+    inputBus.I6 &&
+    inputBus.I10;
+
+  const resetRisingEdge = inputBus.I7 && !programMemory.previousReset;
+  programMemory.previousReset = inputBus.I7;
+
+  if (!safe) {
+    programMemory.ready = false;
+    programMemory.automaticCycle = false;
+  }
+
+  if (safe && resetRisingEdge) {
+    programMemory.ready = true;
+    log("Reset aceito — programa rearmado");
+  }
+
+  const twoHand = inputBus.I3 && inputBus.I4;
+  const manualMode = inputBus.I11;
+  const automaticMode = inputBus.I12;
+  const sensorRetracted = inputBus.I8;
+  const sensorExtended = inputBus.I9;
+
+  if (automaticMode && programMemory.ready && twoHand && sensorRetracted) {
+    programMemory.automaticCycle = true;
+  }
+
+  if (sensorExtended || !safe || !automaticMode) {
+    programMemory.automaticCycle = false;
+  }
+
+  const safetyValveCommand = safe && programMemory.ready;
+  const cylinderCommand = safetyValveCommand && (
+    (manualMode && twoHand) ||
+    (automaticMode && programMemory.automaticCycle)
+  );
+
+  outputBus = {
+    Q1: safetyValveCommand,
+    Q2: cylinderCommand,
+    Q3: safe && programMemory.ready,
+    Q4: safe && !programMemory.ready,
+    Q5: !safe,
+    Q6: safe && !programMemory.ready,
+    Q7: inputBus.I10,
+    Q8: false
+  };
+}
+
+/* =========================================================
+   APLICAÇÃO DAS SAÍDAS À MÁQUINA FÍSICA
+========================================================= */
+
+function applyOutputBus() {
+  const physicalOutputs = Object.fromEntries(
+    simulatorOutputs.map(item => [item.key, false])
+  );
+
+  simulatorOutputs.forEach(signal => {
+    const mappedComponent = ioMapping.outputs[signal.id];
+
+    if (mappedComponent in physicalOutputs) {
+      physicalOutputs[mappedComponent] =
+        physicalOutputs[mappedComponent] || Boolean(outputBus[signal.id]);
+    }
+  });
+
+  state.safetyValve = physicalOutputs.safetyValve;
+  state.cylinderValve = physicalOutputs.cylinderValve && state.safetyValve;
+  state.towerGreen = physicalOutputs.towerGreen;
+  state.towerYellow = physicalOutputs.towerYellow;
+  state.towerRed = physicalOutputs.towerRed;
+  state.resetLed = physicalOutputs.resetLed;
+  state.chockLed = physicalOutputs.chockLed;
+  state.buzzer = physicalOutputs.buzzer;
+}
+
+function evaluate() {
+  refreshInputBus();
+  runDemoProgram();
+  applyOutputBus();
+  render();
 }
 
 /* =========================================================
@@ -80,92 +230,119 @@ function hasPressure() {
 ========================================================= */
 
 function log(message) {
+  const events = $("events");
+
+  if (!events) {
+    return;
+  }
+
   const line = document.createElement("div");
-
-  line.textContent =
-    `${new Date().toLocaleTimeString()} ● ${message}`;
-
-  $("events").prepend(line);
-
+  line.textContent = `${new Date().toLocaleTimeString()} ● ${message}`;
+  events.prepend(line);
   syncFullEvents();
 }
 
 /* =========================================================
-   LÓGICA TEMPORÁRIA DE DEMONSTRAÇÃO
+   TABELAS DE I/O
 ========================================================= */
 
-function evaluate() {
-  if (!isSafe()) {
-    state.ready = false;
-    state.safetyValve = false;
-    state.valve = false;
-  } else {
-    const twoHand =
-      state.left &&
-      state.right;
-
-    if (state.mode === "manual") {
-      state.valve =
-        state.ready &&
-        state.safetyValve &&
-        twoHand;
-    } else {
-      if (
-        state.ready &&
-        state.safetyValve &&
-        twoHand &&
-        state.cylinder < 0.1
-      ) {
-        state.valve = true;
-      }
-
-      if (state.cylinder > 0.95) {
-        state.valve = false;
-      }
-    }
-  }
-
-  render();
+function getDefinitionByKey(definitions, key) {
+  return definitions.find(item => item.key === key);
 }
 
-/* =========================================================
-   TABELAS
-========================================================= */
-
-function renderTable(targetId, signals) {
+function renderTable(targetId, definitions, bus, mappingGroup) {
   const target = $(targetId);
 
   if (!target) {
     return;
   }
 
-  target.innerHTML = signals
-    .map(([id, label, value]) => `
+  target.innerHTML = definitions.map(signal => {
+    const mappedKey = ioMapping[mappingGroup][signal.id];
+    const mappedDefinition = getDefinitionByKey(definitions, mappedKey);
+    const label = mappedDefinition?.name || "Não mapeado";
+    const value = Boolean(bus[signal.id]);
+
+    return `
       <tr>
-        <td>${id}</td>
-
+        <td>${signal.id}</td>
         <td>${label}</td>
-
         <td>
           <span class="state-tag ${value ? "on" : ""}">
             ${value ? "ATIVO" : "INATIVO"}
           </span>
         </td>
-
         <td>
           ${value ? 1 : 0}
-
-          <span class="state-dot ${value ? "on" : ""}">
-          </span>
+          <span class="state-dot ${value ? "on" : ""}"></span>
         </td>
       </tr>
-    `)
-    .join("");
+    `;
+  }).join("");
+}
+
+function syncMonitorTables() {
+  if ($("monitorInputTable") && $("inputTable")) {
+    $("monitorInputTable").innerHTML = $("inputTable").innerHTML;
+  }
+
+  if ($("monitorOutputTable") && $("outputTable")) {
+    $("monitorOutputTable").innerHTML = $("outputTable").innerHTML;
+  }
+}
+
+function syncFullEvents() {
+  if ($("fullEvents") && $("events")) {
+    $("fullEvents").innerHTML = $("events").innerHTML;
+  }
 }
 
 /* =========================================================
-   LED DE RESET
+   ATUALIZAÇÃO VISUAL
 ========================================================= */
+
+function render() {
+  const sensorRetracted = state.cylinder < 0.08;
+  const sensorExtended = state.cylinder > 0.92;
+
+  $("ram").style.top = `${257 + state.cylinder * 82}px`;
+  $("rod").style.height = `${98 + state.cylinder * 82}px`;
+
+  $("curtain").classList.toggle("blocked", state.curtainBlocked);
+  $("emergency").classList.toggle("active", state.emergency);
+  $("chock").classList.toggle("active", state.chockInserted);
+
+  $("lampRed").classList.toggle("on", state.towerRed);
+  $("lampYellow").classList.toggle("on", state.towerYellow);
+  $("lampGreen").classList.toggle("on", state.towerGreen);
+
+  updateResetLed();
+  $("chockLed").classList.toggle("on", state.chockLed);
+
+  updateSafetyValveVisual();
+  updatePressure();
+
+  $("sensorRet").textContent = sensorRetracted ? "ATIVO" : "INATIVO";
+  $("sensorAdv").textContent = sensorExtended ? "ATIVO" : "INATIVO";
+  $("sensorRetLed").classList.toggle("green", sensorRetracted);
+  $("sensorRetLed").classList.toggle("on", sensorRetracted);
+  $("sensorAdvLed").classList.toggle("green", sensorExtended);
+  $("sensorAdvLed").classList.toggle("on", sensorExtended);
+
+  const percentage = Math.round(state.cylinder * 100);
+  $("positionBar").style.width = `${percentage}%`;
+  $("miniFill").style.width = `${percentage}%`;
+  $("positionText").textContent = sensorRetracted
+    ? "RECUADO"
+    : sensorExtended
+      ? "AVANÇADO"
+      : "EM MOVIMENTO";
+
+  renderTable("inputTable", simulatorInputs, inputBus, "inputs");
+  renderTable("outputTable", simulatorOutputs, outputBus, "outputs");
+  syncMonitorTables();
+  syncFullEvents();
+}
 
 function updateResetLed() {
   const led = $("resetLed");
@@ -174,521 +351,124 @@ function updateResetLed() {
     return;
   }
 
-  led.classList.remove(
-    "on",
-    "blinking"
-  );
+  led.classList.remove("on", "blinking");
 
-  if (needsReset()) {
+  if (state.resetLed) {
     led.classList.add("blinking");
-    return;
-  }
-
-  if (
-    state.ready &&
-    isSafe()
-  ) {
+  } else if (programMemory.ready) {
     led.classList.add("on");
   }
 }
 
-/* =========================================================
-   PRESSÃO
-========================================================= */
+function updateSafetyValveVisual() {
+  const energized = state.safetyValve;
 
-function updatePressure() {
-  const pressureAvailable =
-    hasPressure();
+  $("safetyValvePanel")?.classList.toggle("energized", energized);
+  $("safetyValveBody")?.classList.toggle("energized", energized);
+  $("safetyValveCoil")?.classList.toggle("energized", energized);
+  $("safetyValveLed")?.classList.toggle("on", energized);
 
-  $("pressureValue").textContent =
-    pressureAvailable
-      ? "5.2 bar"
-      : "0.0 bar";
-
-  $("pressureGauge").classList.toggle(
-    "no-pressure",
-    !pressureAvailable
-  );
-
-  $("pressureItem").classList.toggle(
-    "pressure-off",
-    !pressureAvailable
-  );
-}
-
-/* =========================================================
-   MONITOR DE I/O
-========================================================= */
-
-function syncMonitorTables() {
-  if (
-    !$("monitorInputTable") ||
-    !$("monitorOutputTable")
-  ) {
-    return;
-  }
-
-  $("monitorInputTable").innerHTML =
-    $("inputTable").innerHTML;
-
-  $("monitorOutputTable").innerHTML =
-    $("outputTable").innerHTML;
-}
-
-function syncFullEvents() {
-  if (!$("fullEvents")) {
-    return;
-  }
-
-  $("fullEvents").innerHTML =
-    $("events").innerHTML;
-}
-
-/* =========================================================
-   ATUALIZAÇÃO VISUAL
-========================================================= */
-
-function render() {
-  const sensorRetracted =
-    state.cylinder < 0.08;
-
-  const sensorExtended =
-    state.cylinder > 0.92;
-
-  const pressureAvailable =
-    hasPressure();
-
-  /* Movimento do cilindro */
-
-  $("ram").style.top =
-    `${257 + state.cylinder * 82}px`;
-
-  $("rod").style.height =
-    `${98 + state.cylinder * 82}px`;
-
-  /* Cortina */
-
-  $("curtain").classList.toggle(
-    "blocked",
-    state.curtainBlocked
-  );
-
-  /* Emergência travada */
-
-  $("emergency").classList.toggle(
-    "active",
-    state.emergency
-  );
-
-  /* Torre luminosa */
-
-  $("lampRed").classList.toggle(
-    "on",
-    !isSafe()
-  );
-
-  $("lampYellow").classList.toggle(
-    "on",
-    needsReset()
-  );
-
-  $("lampGreen").classList.toggle(
-    "on",
-    state.ready && isSafe()
-  );
-
-  /* Calço */
-
-  $("chock").classList.toggle(
-    "active",
-    state.chockInserted
-  );
-
-  $("chockLed").classList.toggle(
-    "on",
-    !state.chockInserted
-  );
-
-
-  /* Válvula pneumática de segurança */
-
-  $("safetyValvePanel").classList.toggle(
-    "energized",
-    state.safetyValve
-  );
-
-  $("safetyValveBody").classList.toggle(
-    "energized",
-    state.safetyValve
-  );
-
-  $("safetyValveCoil").classList.toggle(
-    "energized",
-    state.safetyValve
-  );
-
-  $("safetyValveLed").classList.toggle(
-    "on",
-    state.safetyValve
-  );
-
-  $("safetyValveStatus").textContent =
-    state.safetyValve
+  if ($("safetyValveStatus")) {
+    $("safetyValveStatus").textContent = energized
       ? "ENERGIZADA — SISTEMA PRESSURIZADO"
       : "DESENERGIZADA — SISTEMA EXAURIDO";
-
-  $("safetyValveStatus").classList.toggle(
-    "on",
-    state.safetyValve
-  );
-
-  $("safetyValveStatus").classList.toggle(
-    "off",
-    !state.safetyValve
-  );
-
-  /* Sensores */
-
-  $("sensorRet").textContent =
-    sensorRetracted
-      ? "ATIVO"
-      : "INATIVO";
-
-  $("sensorAdv").textContent =
-    sensorExtended
-      ? "ATIVO"
-      : "INATIVO";
-
-  $("sensorRetLed").classList.toggle(
-    "green",
-    sensorRetracted
-  );
-
-  $("sensorRetLed").classList.toggle(
-    "on",
-    sensorRetracted
-  );
-
-  $("sensorAdvLed").classList.toggle(
-    "green",
-    sensorExtended
-  );
-
-  $("sensorAdvLed").classList.toggle(
-    "on",
-    sensorExtended
-  );
-
-  /* Posição */
-
-  const percentage =
-    Math.round(
-      state.cylinder * 100
-    );
-
-  $("positionBar").style.width =
-    `${percentage}%`;
-
-  $("miniFill").style.width =
-    `${percentage}%`;
-
-  let position =
-    "EM MOVIMENTO";
-
-  if (sensorRetracted) {
-    position = "RECUADO";
+    $("safetyValveStatus").classList.toggle("on", energized);
+    $("safetyValveStatus").classList.toggle("off", !energized);
   }
+}
 
-  if (sensorExtended) {
-    position = "AVANÇADO";
-  }
+function updatePressure() {
+  const pressureAvailable = state.safetyValve;
 
-  $("positionText").textContent =
-    position;
-
-  /* I/O */
-
-  const inputs = [
-    ["I1", "Emergência CH1", !state.emergency],
-    ["I2", "Emergência CH2", !state.emergency],
-    ["I3", "Bimanual esquerdo", state.left],
-    ["I4", "Bimanual direito", state.right],
-    ["I5", "Cortina de luz CH1", !state.curtainBlocked],
-    ["I6", "Cortina de luz CH2", !state.curtainBlocked],
-    ["I7", "Botão reset", state.reset],
-    ["I8", "Sensor cilindro recuado", sensorRetracted],
-    ["I9", "Sensor cilindro avançado", sensorExtended],
-    ["I10", "Calço monitorado", !state.chockInserted],
-    ["I11", "Seletora manual", state.mode === "manual"],
-    ["I12", "Seletora automático", state.mode === "automatic"]
-  ];
-
-  const outputs = [
-    ["Q1", "Válvula pneumática de segurança", state.safetyValve],
-    ["Q2", "Válvula de avanço do cilindro", state.valve],
-    ["Q3", "Torre verde", state.ready && isSafe()],
-    ["Q4", "Torre amarela", needsReset()],
-    ["Q5", "Torre vermelha", !isSafe()],
-    ["Q6", "LED do reset", needsReset()],
-    ["Q7", "LED do calço monitorado", !state.chockInserted],
-    ["Q8", "Buzzer", false]
-  ];
-
-  renderTable(
-    "inputTable",
-    inputs
-  );
-
-  renderTable(
-    "outputTable",
-    outputs
-  );
-
-  updateResetLed();
-  updatePressure();
-  syncMonitorTables();
-  syncFullEvents();
+  $("pressureValue").textContent = pressureAvailable ? "5.2 bar" : "0.0 bar";
+  $("pressureGauge").classList.toggle("no-pressure", !pressureAvailable);
+  $("pressureItem").classList.toggle("pressure-off", !pressureAvailable);
 }
 
 /* =========================================================
-   BOTÕES MOMENTÂNEOS
+   INTERAÇÕES FÍSICAS
 ========================================================= */
 
-function holdButton(id, key) {
+function holdButton(id, stateKey) {
   const element = $(id);
 
-  [
-    "mousedown",
-    "touchstart"
-  ].forEach(eventName => {
-    element.addEventListener(
-      eventName,
-      event => {
-        event.preventDefault();
+  if (!element) {
+    return;
+  }
 
-        state[key] = true;
-
-        element.classList.add(
-          "active"
-        );
-
-        evaluate();
-      }
-    );
+  ["mousedown", "touchstart"].forEach(eventName => {
+    element.addEventListener(eventName, event => {
+      event.preventDefault();
+      state[stateKey] = true;
+      element.classList.add("active");
+      evaluate();
+    });
   });
 
-  [
-    "mouseup",
-    "mouseleave",
-    "touchend"
-  ].forEach(eventName => {
-    element.addEventListener(
-      eventName,
-      event => {
-        event.preventDefault();
-
-        state[key] = false;
-
-        element.classList.remove(
-          "active"
-        );
-
-        evaluate();
-      }
-    );
+  ["mouseup", "mouseleave", "touchend", "touchcancel"].forEach(eventName => {
+    element.addEventListener(eventName, event => {
+      event.preventDefault();
+      state[stateKey] = false;
+      element.classList.remove("active");
+      evaluate();
+    });
   });
 }
 
-holdButton(
-  "leftHand",
-  "left"
-);
+holdButton("leftHand", "left");
+holdButton("rightHand", "right");
+holdButton("resetButton", "reset");
 
-holdButton(
-  "rightHand",
-  "right"
-);
-
-/* =========================================================
-   EMERGÊNCIA TRAVADA
-========================================================= */
-
-$("emergency").addEventListener(
-  "click",
-  () => {
-    state.emergency =
-      !state.emergency;
-
-    log(
-      state.emergency
-        ? "Emergência acionada"
-        : "Emergência destravada"
-    );
-
-    evaluate();
-  }
-);
-
-/* =========================================================
-   CORTINA
-========================================================= */
-
-$("curtainButton").addEventListener(
-  "click",
-  () => {
-    state.curtainBlocked =
-      !state.curtainBlocked;
-
-    $("curtainButton").textContent =
-      state.curtainBlocked
-        ? "Liberar cortina"
-        : "Interromper cortina";
-
-    log(
-      state.curtainBlocked
-        ? "Cortina interrompida"
-        : "Cortina liberada"
-    );
-
-    evaluate();
-  }
-);
-
-/* =========================================================
-   CALÇO
-========================================================= */
-
-$("chock").addEventListener(
-  "click",
-  () => {
-    state.chockInserted =
-      !state.chockInserted;
-
-    log(
-      state.chockInserted
-        ? "Calço inserido"
-        : "Calço removido"
-    );
-
-    evaluate();
-  }
-);
-
-/* =========================================================
-   SELETORA
-========================================================= */
-
-$("mode").addEventListener(
-  "change",
-  event => {
-    state.mode =
-      event.target.value;
-
-    log(
-      state.mode === "manual"
-        ? "Modo manual selecionado"
-        : "Modo automático selecionado"
-    );
-
-    evaluate();
-  }
-);
-
-/* =========================================================
-   RESET
-========================================================= */
-
-[
-  "mousedown",
-  "touchstart"
-].forEach(eventName => {
-  $("resetButton").addEventListener(
-    eventName,
-    event => {
-      event.preventDefault();
-
-      state.reset = true;
-
-      $("resetButton").classList.add(
-        "active"
-      );
-
-      if (isSafe()) {
-        state.ready = true;
-        state.safetyValve = true;
-
-        log(
-          "Reset aceito — máquina pronta"
-        );
-      }
-
-      evaluate();
-    }
-  );
+$("emergency")?.addEventListener("click", () => {
+  state.emergency = !state.emergency;
+  log(state.emergency ? "Emergência acionada" : "Emergência destravada");
+  evaluate();
 });
 
-[
-  "mouseup",
-  "mouseleave",
-  "touchend"
-].forEach(eventName => {
-  $("resetButton").addEventListener(
-    eventName,
-    event => {
-      event.preventDefault();
+$("curtainButton")?.addEventListener("click", () => {
+  state.curtainBlocked = !state.curtainBlocked;
+  $("curtainButton").textContent = state.curtainBlocked
+    ? "Liberar cortina"
+    : "Interromper cortina";
+  log(state.curtainBlocked ? "Cortina interrompida" : "Cortina liberada");
+  evaluate();
+});
 
-      state.reset = false;
+$("chock")?.addEventListener("click", () => {
+  state.chockInserted = !state.chockInserted;
+  log(state.chockInserted ? "Calço inserido" : "Calço removido");
+  evaluate();
+});
 
-      $("resetButton").classList.remove(
-        "active"
-      );
+$("mode")?.addEventListener("change", event => {
+  state.mode = event.target.value;
+  log(state.mode === "manual" ? "Modo manual selecionado" : "Modo automático selecionado");
+  evaluate();
+});
 
-      evaluate();
-    }
-  );
+$("msxFile")?.addEventListener("change", event => {
+  const file = event.target.files[0];
+
+  if (!file) {
+    return;
+  }
+
+  $("projectName").textContent = file.name;
+  log(`Arquivo selecionado: ${file.name}`);
 });
 
 /* =========================================================
-   ARQUIVO MSX
+   MAPA DE I/O FUNCIONAL
 ========================================================= */
 
-$("msxFile").addEventListener(
-  "change",
-  event => {
-    const file =
-      event.target.files[0];
+function createMappingOptions(definitions, selectedKey = "") {
+  const options = definitions.map(item => `
+    <option value="${item.key}" ${item.key === selectedKey ? "selected" : ""}>
+      ${item.name}
+    </option>
+  `).join("");
 
-    if (!file) {
-      return;
-    }
-
-    $("projectName").textContent =
-      file.name;
-
-    log(
-      `Arquivo selecionado: ${file.name}`
-    );
-  }
-);
-
-/* =========================================================
-   MAPA DE I/O
-========================================================= */
-
-function createMappingOptions(targets, selectedValue = "") {
-  const defaultOption = `
-    <option value="">Não mapeado</option>
-  `;
-
-  const options = targets
-    .map(target => `
-      <option value="${target}" ${target === selectedValue ? "selected" : ""}>
-        ${target}
-      </option>
-    `)
-    .join("");
-
-  return defaultOption + options;
+  return `<option value="">Não mapeado</option>${options}`;
 }
 
 function renderMappingRows(containerId, signals, type) {
@@ -698,53 +478,47 @@ function renderMappingRows(containerId, signals, type) {
     return;
   }
 
-  const savedMapping = JSON.parse(
-    localStorage.getItem("pressSimulatorIoMapping") || "{}"
-  );
+  const targets = type === "inputs" ? simulatorInputs : simulatorOutputs;
 
-  const targets = mappingTargets[type];
+  container.innerHTML = signals.map(signal => {
+    const selectedKey = ioMapping[type][signal.id] || "";
 
-  container.innerHTML = signals
-    .map(signal => {
-      const selectedValue = savedMapping[signal.id] || "";
-
-      return `
-        <div class="mapping-row" data-signal-id="${signal.id}">
-          <div class="mapping-signal-info">
-            <strong>${signal.id}</strong>
-            <span>${type === "inputs" ? "Entrada" : "Saída"} digital ${signal.id.replace(/\D/g, "")}</span>
-          </div>
-
-          <select
-            class="mapping-select"
-            data-signal-id="${signal.id}"
-            aria-label="Mapear ${signal.id}"
-          >
-            ${createMappingOptions(targets, selectedValue)}
-          </select>
-
-          <span class="mapping-row-status ${selectedValue ? "mapped" : ""}">
-            ${selectedValue ? "✓" : "○"}
-          </span>
+    return `
+      <div class="mapping-row" data-signal-id="${signal.id}">
+        <div class="mapping-signal-info">
+          <strong>${signal.id}</strong>
+          <span>${type === "inputs" ? "Entrada" : "Saída"} digital ${signal.id.replace(/\D/g, "")}</span>
         </div>
-      `;
-    })
-    .join("");
+
+        <select
+          class="mapping-select"
+          data-signal-id="${signal.id}"
+          data-signal-type="${type}"
+          aria-label="Mapear ${signal.id}"
+        >
+          ${createMappingOptions(targets, selectedKey)}
+        </select>
+
+        <span class="mapping-row-status ${selectedKey ? "mapped" : ""}">
+          ${selectedKey ? "✓" : "○"}
+        </span>
+      </div>
+    `;
+  }).join("");
 }
 
 function updateMappingProgress() {
-  const selects = document.querySelectorAll(".mapping-select");
-  const completed = [...selects].filter(select => select.value).length;
-  const total = selects.length;
+  const selects = [...document.querySelectorAll(".mapping-select")];
+  const completed = selects.filter(select => select.value).length;
 
   if ($("mappingCompletedCount")) {
-    $("mappingCompletedCount").textContent = `${completed} / ${total}`;
+    $("mappingCompletedCount").textContent = `${completed} / ${selects.length}`;
   }
 
   selects.forEach(select => {
+    const mapped = Boolean(select.value);
     const row = select.closest(".mapping-row");
     const status = row?.querySelector(".mapping-row-status");
-    const mapped = Boolean(select.value);
 
     row?.classList.toggle("mapped", mapped);
 
@@ -753,6 +527,53 @@ function updateMappingProgress() {
       status.textContent = mapped ? "✓" : "○";
     }
   });
+}
+
+function preventDuplicateMapping(changedSelect) {
+  if (!changedSelect.value) {
+    return;
+  }
+
+  const type = changedSelect.dataset.signalType;
+
+  document.querySelectorAll(`.mapping-select[data-signal-type="${type}"]`).forEach(select => {
+    if (select !== changedSelect && select.value === changedSelect.value) {
+      select.value = "";
+    }
+  });
+}
+
+function readMappingFromPage() {
+  const nextMapping = { inputs: {}, outputs: {} };
+
+  document.querySelectorAll(".mapping-select").forEach(select => {
+    const type = select.dataset.signalType;
+    nextMapping[type][select.dataset.signalId] = select.value;
+  });
+
+  return nextMapping;
+}
+
+function saveIoMapping() {
+  ioMapping = readMappingFromPage();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(ioMapping));
+
+  const message = $("mappingSaveMessage");
+
+  if (message) {
+    message.textContent = "Mapeamento salvo e aplicado ao simulador.";
+    message.classList.add("visible");
+    window.setTimeout(() => message.classList.remove("visible"), 2500);
+  }
+
+  programMemory = {
+    ready: false,
+    automaticCycle: false,
+    previousReset: false
+  };
+
+  log("Mapeamento de I/O salvo e aplicado");
+  evaluate();
 }
 
 function initializeMappingPage() {
@@ -768,281 +589,136 @@ function initializeMappingPage() {
   }
 
   document.querySelectorAll(".mapping-select").forEach(select => {
-    select.addEventListener("change", updateMappingProgress);
+    select.addEventListener("change", () => {
+      preventDuplicateMapping(select);
+      updateMappingProgress();
+    });
   });
 
   updateMappingProgress();
 }
 
-function saveIoMapping() {
-  const mapping = {};
-
-  document.querySelectorAll(".mapping-select").forEach(select => {
-    mapping[select.dataset.signalId] = select.value;
-  });
-
-  localStorage.setItem(
-    "pressSimulatorIoMapping",
-    JSON.stringify(mapping)
-  );
-
-  const message = $("mappingSaveMessage");
-
-  if (message) {
-    message.textContent = "Mapeamento salvo neste navegador.";
-    message.classList.add("visible");
-
-    window.setTimeout(() => {
-      message.classList.remove("visible");
-    }, 2500);
-  }
-
-  log("Mapeamento de I/O salvo");
-}
-
-$("saveMappingButton")?.addEventListener(
-  "click",
-  saveIoMapping
-);
+$("saveMappingButton")?.addEventListener("click", saveIoMapping);
 
 /* =========================================================
    NAVEGAÇÃO
 ========================================================= */
 
-const navItems =
-  document.querySelectorAll(
-    ".nav-item"
-  );
-
-const pages =
-  document.querySelectorAll(
-    ".page"
-  );
+const navItems = document.querySelectorAll(".nav-item");
+const pages = document.querySelectorAll(".page");
 
 function openPage(pageId) {
-  pages.forEach(page => {
-    page.classList.remove(
-      "active-page"
-    );
-  });
+  pages.forEach(page => page.classList.remove("active-page"));
+  navItems.forEach(item => item.classList.remove("active"));
 
-  navItems.forEach(item => {
-    item.classList.remove(
-      "active"
-    );
-  });
-
-  const targetPage =
-    document.getElementById(
-      pageId
-    );
-
-  if (targetPage) {
-    targetPage.classList.add(
-      "active-page"
-    );
-  }
-
-  const targetButton =
-    document.querySelector(
-      `[data-page="${pageId}"]`
-    );
-
-  if (targetButton) {
-    targetButton.classList.add(
-      "active"
-    );
-  }
+  document.getElementById(pageId)?.classList.add("active-page");
+  document.querySelector(`[data-page="${pageId}"]`)?.classList.add("active");
 }
 
 navItems.forEach(item => {
-  item.addEventListener(
-    "click",
-    () => {
-      openPage(
-        item.dataset.page
-      );
-    }
-  );
+  item.addEventListener("click", () => openPage(item.dataset.page));
 });
 
-$("openIoMapButton").addEventListener(
-  "click",
-  () => {
-    openPage("io-map");
-  }
-);
-
-$("openSettingsButton").addEventListener(
-  "click",
-  () => {
-    openPage("settings");
-  }
-);
-
-$("clearEventsButton").addEventListener(
-  "click",
-  () => {
-    $("events").innerHTML = "";
-    $("fullEvents").innerHTML = "";
-  }
-);
+$("openIoMapButton")?.addEventListener("click", () => openPage("io-map"));
+$("openSettingsButton")?.addEventListener("click", () => openPage("settings"));
+$("clearEventsButton")?.addEventListener("click", () => {
+  if ($("events")) $("events").innerHTML = "";
+  if ($("fullEvents")) $("fullEvents").innerHTML = "";
+});
 
 /* =========================================================
    TECLADO
 ========================================================= */
 
-document.addEventListener(
-  "keydown",
-  event => {
-    if (event.repeat) {
-      return;
-    }
+function setKeyboardButton(key, active) {
+  const mapping = {
+    a: ["left", "leftHand"],
+    d: ["right", "rightHand"]
+  };
 
-    const key =
-      event.key.toLowerCase();
+  const target = mapping[key];
 
-    if (key === "a") {
-      state.left = true;
+  if (!target) {
+    return false;
+  }
 
-      $("leftHand").classList.add(
-        "active"
-      );
-    }
+  state[target[0]] = active;
+  $(target[1])?.classList.toggle("active", active);
+  return true;
+}
 
-    if (key === "d") {
-      state.right = true;
+document.addEventListener("keydown", event => {
+  if (event.repeat) {
+    return;
+  }
 
-      $("rightHand").classList.add(
-        "active"
-      );
-    }
+  const key = event.key.toLowerCase();
 
-    if (key === "e") {
-      state.emergency =
-        !state.emergency;
+  if (setKeyboardButton(key, true)) {
+    evaluate();
+    return;
+  }
 
-      log(
-        state.emergency
-          ? "Emergência acionada"
-          : "Emergência destravada"
-      );
-    }
+  if (key === "e") {
+    state.emergency = !state.emergency;
+    log(state.emergency ? "Emergência acionada" : "Emergência destravada");
+    evaluate();
+    return;
+  }
 
-    if (key === "m") {
-      state.mode =
-        state.mode === "manual"
-          ? "automatic"
-          : "manual";
+  if (key === "m") {
+    state.mode = state.mode === "manual" ? "automatic" : "manual";
+    $("mode").value = state.mode;
+    log(state.mode === "manual" ? "Modo manual selecionado" : "Modo automático selecionado");
+    evaluate();
+    return;
+  }
 
-      $("mode").value =
-        state.mode;
-
-      log(
-        state.mode === "manual"
-          ? "Modo manual selecionado"
-          : "Modo automático selecionado"
-      );
-    }
-
-    if (event.code === "Space") {
-      event.preventDefault();
-
-      state.reset = true;
-
-      $("resetButton").classList.add(
-        "active"
-      );
-
-      if (isSafe()) {
-        state.ready = true;
-        state.safetyValve = true;
-      }
-    }
-
+  if (event.code === "Space") {
+    event.preventDefault();
+    state.reset = true;
+    $("resetButton")?.classList.add("active");
     evaluate();
   }
-);
+});
 
-document.addEventListener(
-  "keyup",
-  event => {
-    const key =
-      event.key.toLowerCase();
+document.addEventListener("keyup", event => {
+  const key = event.key.toLowerCase();
 
-    if (key === "a") {
-      state.left = false;
+  if (setKeyboardButton(key, false)) {
+    evaluate();
+    return;
+  }
 
-      $("leftHand").classList.remove(
-        "active"
-      );
-    }
-
-    if (key === "d") {
-      state.right = false;
-
-      $("rightHand").classList.remove(
-        "active"
-      );
-    }
-
-    if (event.code === "Space") {
-      state.reset = false;
-
-      $("resetButton").classList.remove(
-        "active"
-      );
-    }
-
+  if (event.code === "Space") {
+    state.reset = false;
+    $("resetButton")?.classList.remove("active");
     evaluate();
   }
-);
+});
 
 /* =========================================================
-   ANIMAÇÃO
+   ANIMAÇÃO DO CILINDRO
 ========================================================= */
 
-let last =
-  performance.now();
+let lastFrame = performance.now();
 
 function tick(now) {
-  const dt =
-    Math.min(
-      (now - last) / 1000,
-      0.05
-    );
+  const dt = Math.min((now - lastFrame) / 1000, 0.05);
+  lastFrame = now;
 
-  last = now;
-
-  const target =
-    state.valve
-      ? 1
-      : 0;
-
+  const target = state.cylinderValve ? 1 : 0;
   const speed = 0.9;
 
-  if (
-    state.cylinder < target
-  ) {
-    state.cylinder =
-      Math.min(
-        target,
-        state.cylinder + speed * dt
-      );
+  if (state.cylinder < target) {
+    state.cylinder = Math.min(target, state.cylinder + speed * dt);
   }
 
-  if (
-    state.cylinder > target
-  ) {
-    state.cylinder =
-      Math.max(
-        target,
-        state.cylinder - speed * dt
-      );
+  if (state.cylinder > target) {
+    state.cylinder = Math.max(target, state.cylinder - speed * dt);
   }
 
-  render();
-
+  evaluate();
   requestAnimationFrame(tick);
 }
 
@@ -1051,10 +727,7 @@ function tick(now) {
 ========================================================= */
 
 initializeMappingPage();
-
 log("Sistema iniciado");
-log("Modo demonstração ativo");
-
+log("Mapa de I/O funcional carregado");
 evaluate();
-
 requestAnimationFrame(tick);
