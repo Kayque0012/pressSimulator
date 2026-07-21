@@ -153,6 +153,10 @@ const BLOCK_ALIASES = {
   INPUT: ["INPUT", "DIGITALINPUT", "IN", "SAFEINPUT", "LOGICINPUT", "INGRESSOITEM"],
   OUTPUT: ["OUTPUT", "DIGITALOUTPUT", "OUT", "SAFEOUTPUT", "LOGICOUTPUT", "USCITAITEM"],
   ESTOP: ["FUNGOITEM", "EMERGENCY", "ESTOP"],
+  RESTART_MONITORED: ["RESTARTMONITOREDITEM", "RESTARTMONITORED"],
+  SWITCH: ["SWITCHITEM", "SWITCH"],
+  BIMANUAL: ["BIMANUALEITEM", "BIMANUALITEM", "TWOHAND"],
+  OSSD: ["OSSDCONFIGURABILEITEM", "OSSDITEM", "OSSD"],
   PASS: ["SIGNALITEM", "INTERPAGINAINITEM", "INTERPAGINAOUTITEM"],
   CLOCK: ["CLOCKINGITEM", "CLOCK", "BLINK"],
   AND: ["AND", "ANDGATE", "LOGICAND"],
@@ -504,9 +508,37 @@ class MsxRuntime {
       case "PASS":
         output = first;
         break;
-      case "ESTOP":
-        output = values.length >= 2 && values.every(Boolean);
+      case "ESTOP": {
+        const ch1 = inputs.TOPLEFT ?? inputs.IN1 ?? values[0] ?? false;
+        const ch2 = inputs.BOTTOMLEFT ?? inputs.IN2 ?? values[1] ?? false;
+        output = Boolean(ch1 && ch2);
         break;
+      }
+      case "RESTART_MONITORED": {
+        const safetyInput = inputs.IN ?? inputs.TOPLEFT ?? values[0] ?? false;
+        const resetInput = inputs.IMPULSO ?? inputs.RESET ?? inputs.IN2 ?? values[1] ?? false;
+        const resetRising = Boolean(resetInput) && !Boolean(memory.previousReset);
+        memory.previousReset = Boolean(resetInput);
+
+        if (!safetyInput) {
+          memory.q = false;
+        } else if (resetRising) {
+          memory.q = true;
+        }
+
+        output = Boolean(memory.q && safetyInput);
+        break;
+      }
+      case "SWITCH":
+      case "OSSD":
+        output = first;
+        break;
+      case "BIMANUAL": {
+        const left = inputs.IN1 ?? inputs.TOPLEFT ?? values[0] ?? false;
+        const right = inputs.IN2 ?? inputs.BOTTOMLEFT ?? values[1] ?? false;
+        output = Boolean(left && right);
+        break;
+      }
       case "CLOCK": {
         const rawTime = Number(findParameter(block.parameters, ["MemTempo", "PT", "time"], 50));
         // No ClockingItem do Mosaic, MemTempo trabalha em passos de 10 ms.
@@ -634,7 +666,110 @@ class MsxRuntime {
   }
 }
 
+function clearProgramOutputs() {
+  outputBus = createBooleanBus(simulatorOutputs);
+
+  state.safetyValve = false;
+  state.cylinderValve = false;
+  state.towerGreen = false;
+  state.towerYellow = false;
+  state.towerRed = false;
+  state.resetLed = false;
+  state.chockLed = false;
+  state.buzzer = false;
+  state.safeOutput3 = false;
+  state.safeOutput4 = false;
+}
+
+function resetLoadedProjectState() {
+  simulationRunning = false;
+  msxRuntime?.reset();
+  msxRuntime = null;
+  msxProject = null;
+  activeProgramMode = "demo";
+
+  programMemory = {
+    ready: false,
+    automaticCycle: false,
+    previousReset: false
+  };
+
+  clearProgramOutputs();
+  updateRunButton();
+}
+
+function emptyIoMapping() {
+  return {
+    inputs: Object.fromEntries(simulatorInputs.map(item => [item.id, ""])),
+    outputs: Object.fromEntries(simulatorOutputs.map(item => [item.id, ""]))
+  };
+}
+
+function suggestInputMapping(block) {
+  const name = normalizeToken(block.name);
+
+  if (name.includes("EMG") || name.includes("EMERGEN")) {
+    if (name.includes("CH2") || name.endsWith("2")) return "emergencyCH2";
+    return "emergencyCH1";
+  }
+  if (name.includes("BIMANUAL")) {
+    if (name.includes("CH2") || name.includes("DIR") || name.endsWith("2")) return "rightHand";
+    return "leftHand";
+  }
+  if (name.includes("RESET") || name.includes("RESTART")) return "reset";
+  if (name.includes("MANUAL")) return "manualMode";
+  if (name.includes("AUTO")) return "automaticMode";
+  if (name.includes("CORTINA") || name.includes("BARRIER") || name.includes("BARRIERE")) {
+    if (name.includes("CH2") || name.endsWith("2")) return "curtainCH2";
+    return "curtainCH1";
+  }
+  if (name.includes("RECU") || name.includes("RETRACT")) return "sensorRetracted";
+  if (name.includes("AVANC") || name.includes("EXTEND")) return "sensorExtended";
+  if (name.includes("CALCO") || name.includes("CHOCK")) return "chockSafe";
+  return "";
+}
+
+function suggestOutputMapping(block) {
+  const name = normalizeToken(block.name);
+
+  if (name.includes("LED") && name.includes("RESET")) return "resetLed";
+  if (name.includes("AVANCA") || name.includes("AVANCO") || name.includes("CILINDRO")) return "cylinderValve";
+  if (name.includes("SEGUR") || name.includes("PRESSUR") || name.includes("DUMP")) return "safetyValve";
+  if (name.includes("VERDE") || name.includes("GREEN")) return "towerGreen";
+  if (name.includes("AMAREL") || name.includes("YELLOW")) return "towerYellow";
+  if (name.includes("VERMEL") || name.includes("RED")) return "towerRed";
+  if (name.includes("BUZZ") || name.includes("SIREN") || name.includes("ALARME")) return "buzzer";
+  return "";
+}
+
+function buildSuggestedMapping(project) {
+  const next = emptyIoMapping();
+  const usedInputTargets = new Set();
+  const usedOutputTargets = new Set();
+
+  project.inputs.forEach(block => {
+    const suggestion = suggestInputMapping(block);
+    if (block.address && suggestion && !usedInputTargets.has(suggestion)) {
+      next.inputs[block.address] = suggestion;
+      usedInputTargets.add(suggestion);
+    }
+  });
+
+  project.outputs.forEach(block => {
+    const suggestion = suggestOutputMapping(block);
+    if (block.address && suggestion && !usedOutputTargets.has(suggestion)) {
+      next.outputs[block.address] = suggestion;
+      usedOutputTargets.add(suggestion);
+    }
+  });
+
+  return next;
+}
+
 async function loadMsxFile(file) {
+  // Uma importação sempre começa com motor, memórias, saídas e mapeamento limpos.
+  resetLoadedProjectState();
+
   const buffer = await file.arrayBuffer();
   const xmlText = decodeProjectBuffer(buffer);
   const project = parseMsxXml(xmlText, file.name);
@@ -647,8 +782,14 @@ async function loadMsxFile(file) {
   msxRuntime = new MsxRuntime(project);
   activeProgramMode = "msx";
   simulationRunning = false;
-  updateRunButton();
 
+  // Não reaproveita mapeamento de outro projeto. Sugere somente os I/Os
+  // realmente usados no arquivo recém-carregado.
+  ioMapping = buildSuggestedMapping(project);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(ioMapping));
+
+  clearProgramOutputs();
+  updateRunButton();
   return project;
 }
 
@@ -677,6 +818,13 @@ function reportMsxProject(project) {
   ].join(" • ");
 
   log(`MSX analisado: ${summary}`);
+
+  const newlySupported = project.blocks.filter(block =>
+    ["RESTART_MONITORED", "SWITCH", "BIMANUAL", "OSSD"].includes(block.type)
+  );
+  if (newlySupported.length) {
+    log(`Blocos de segurança reconhecidos: ${newlySupported.map(block => block.type).join(", ")}`);
+  }
 
   console.table(project.inputs.map(block => ({ grupo: "Entrada", endereco: block.address, nome: block.name })));
   console.table(project.safeOutputs.map(block => ({ grupo: "Saída segura", endereco: block.address, nome: block.name })));
@@ -779,7 +927,9 @@ function applyOutputBus() {
   state.towerYellow = physicalOutputs.towerYellow;
   state.towerRed = physicalOutputs.towerRed;
   state.resetLed = physicalOutputs.resetLed;
-  state.chockLed = physicalOutputs.chockLed;
+  // O LED do calço não possui saída dedicada no M1S desta V1.
+  // Portanto, sem um endereço explicitamente mapeado ele fica sempre apagado.
+  state.chockLed = false;
   state.buzzer = physicalOutputs.buzzer;
   state.safeOutput3 = physicalOutputs.safeOutput3;
   state.safeOutput4 = physicalOutputs.safeOutput4;
@@ -1028,9 +1178,7 @@ $("msxFile")?.addEventListener("change", async event => {
     log("Modo MSX ativado — revise e salve o mapeamento");
     evaluate();
   } catch (error) {
-    activeProgramMode = "demo";
-    msxProject = null;
-    msxRuntime = null;
+    resetLoadedProjectState();
     console.error(error);
     log(`Falha ao carregar MSX: ${error.message}`);
   }
