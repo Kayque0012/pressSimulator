@@ -478,8 +478,10 @@ class MsxRuntime {
         output = values.length >= 2 && values.every(Boolean);
         break;
       case "CLOCK": {
-        const rawTime = Number(findParameter(block.parameters, ["MemTempo", "PT", "time"], 5));
-        const halfPeriodMs = Math.max(50, rawTime * 100);
+        const rawTime = Number(findParameter(block.parameters, ["MemTempo", "PT", "time"], 50));
+        // No ClockingItem do Mosaic, MemTempo trabalha em passos de 10 ms.
+        // MemTempo=50 resulta em alternância a cada 500 ms.
+        const halfPeriodMs = Math.max(10, rawTime * 10);
         output = first && Math.floor(now / halfPeriodMs) % 2 === 0;
         break;
       }
@@ -872,13 +874,10 @@ function updateResetLed() {
     return;
   }
 
-  led.classList.remove("on", "blinking");
-
-  if (state.resetLed) {
-    led.classList.add("blinking");
-  } else if (programMemory.ready) {
-    led.classList.add("on");
-  }
+  // O LED não cria seu próprio pisca. Ele apenas reproduz o estado
+  // instantâneo da saída física mapeada (por exemplo, ST1).
+  led.classList.remove("blinking");
+  led.classList.toggle("on", Boolean(state.resetLed));
 }
 
 function updateSafetyValveVisual() {
@@ -997,6 +996,22 @@ $("msxFile")?.addEventListener("change", async event => {
    MAPA DE I/O FUNCIONAL
 ========================================================= */
 
+function getMappingTargetsForSignal(signal, type) {
+  if (type === "inputs") {
+    return simulatorInputs;
+  }
+
+  if (signal.id.startsWith("OS")) {
+    return simulatorSafeOutputs;
+  }
+
+  if (signal.id.startsWith("ST")) {
+    return simulatorStatusOutputs;
+  }
+
+  return simulatorOutputs;
+}
+
 function createMappingOptions(definitions, selectedKey = "") {
   const options = definitions.map(item => `
     <option value="${item.key}" ${item.key === selectedKey ? "selected" : ""}>
@@ -1007,27 +1022,59 @@ function createMappingOptions(definitions, selectedKey = "") {
   return `<option value="">Não mapeado</option>${options}`;
 }
 
-function renderMappingRows(containerId, signals, type) {
+function getProjectIoUsage() {
+  const usage = {
+    inputs: new Map(),
+    outputs: new Map()
+  };
+
+  if (!msxProject) {
+    return usage;
+  }
+
+  msxProject.inputs.forEach(block => usage.inputs.set(block.address, block));
+  [...msxProject.safeOutputs, ...msxProject.statusOutputs]
+    .forEach(block => usage.outputs.set(block.address, block));
+
+  return usage;
+}
+
+function renderMappingRows(containerId, signals, type, projectUsage) {
   const container = $(containerId);
   if (!container) return;
 
-  const targets = type === "inputs" ? simulatorInputs : simulatorOutputs;
   container.innerHTML = signals.map(signal => {
     const selectedKey = ioMapping[type][signal.id] || "";
+    const targets = getMappingTargetsForSignal(signal, type);
+    const projectBlock = projectUsage.get(signal.id);
+    const usedByProject = Boolean(projectBlock);
     const groupLabel = signal.id.startsWith("OS")
       ? "Saída segura"
       : signal.id.startsWith("ST")
         ? "Saída de status"
         : "Entrada digital";
-    const projectName = signal.projectName ? ` — ${signal.projectName}` : "";
+    const detail = usedByProject
+      ? `${groupLabel} ${signal.id.replace(/\D/g, "")} — ${projectBlock.name}`
+      : `${groupLabel} ${signal.id.replace(/\D/g, "")} — não utilizado neste projeto`;
 
     return `
-      <div class="mapping-row" data-signal-id="${signal.id}">
+      <div
+        class="mapping-row ${usedByProject ? "project-used" : "project-unused"}"
+        data-signal-id="${signal.id}"
+        data-project-used="${usedByProject}"
+        style="${usedByProject ? "" : "opacity:.58"}"
+      >
         <div class="mapping-signal-info">
           <strong>${signal.id}</strong>
-          <span>${groupLabel} ${signal.id.replace(/\D/g, "")}${projectName}</span>
+          <span>${detail}</span>
         </div>
-        <select class="mapping-select" data-signal-id="${signal.id}" data-signal-type="${type}" aria-label="Mapear ${signal.id}">
+        <select
+          class="mapping-select"
+          data-signal-id="${signal.id}"
+          data-signal-type="${type}"
+          data-project-used="${usedByProject}"
+          aria-label="Mapear ${signal.id}"
+        >
           ${createMappingOptions(targets, selectedKey)}
         </select>
         <span class="mapping-row-status ${selectedKey ? "mapped" : ""}">${selectedKey ? "✓" : "○"}</span>
@@ -1037,14 +1084,14 @@ function renderMappingRows(containerId, signals, type) {
 }
 
 function updateMappingProgress() {
-  const selects = [...document.querySelectorAll(".mapping-select")];
+  const selects = [...document.querySelectorAll('.mapping-select[data-project-used="true"]')];
   const completed = selects.filter(select => select.value).length;
 
   if ($("mappingCompletedCount")) {
     $("mappingCompletedCount").textContent = `${completed} / ${selects.length}`;
   }
 
-  selects.forEach(select => {
+  document.querySelectorAll(".mapping-select").forEach(select => {
     const mapped = Boolean(select.value);
     const row = select.closest(".mapping-row");
     const status = row?.querySelector(".mapping-row-status");
@@ -1064,16 +1111,34 @@ function preventDuplicateMapping(changedSelect) {
   }
 
   const type = changedSelect.dataset.signalType;
+  const outputFamily = changedSelect.dataset.signalId.startsWith("OS")
+    ? "OS"
+    : changedSelect.dataset.signalId.startsWith("ST")
+      ? "ST"
+      : "I";
 
   document.querySelectorAll(`.mapping-select[data-signal-type="${type}"]`).forEach(select => {
-    if (select !== changedSelect && select.value === changedSelect.value) {
+    const selectFamily = select.dataset.signalId.startsWith("OS")
+      ? "OS"
+      : select.dataset.signalId.startsWith("ST")
+        ? "ST"
+        : "I";
+
+    if (
+      select !== changedSelect &&
+      selectFamily === outputFamily &&
+      select.value === changedSelect.value
+    ) {
       select.value = "";
     }
   });
 }
 
 function readMappingFromPage() {
-  const nextMapping = { inputs: {}, outputs: {} };
+  const nextMapping = {
+    inputs: { ...ioMapping.inputs },
+    outputs: { ...ioMapping.outputs }
+  };
 
   document.querySelectorAll(".mapping-select").forEach(select => {
     const type = select.dataset.signalType;
@@ -1101,42 +1166,24 @@ function saveIoMapping() {
     previousReset: false
   };
 
+  msxRuntime?.reset();
   log("Mapeamento de I/O salvo e aplicado");
   evaluate();
 }
 
-function getActiveMappingDefinitions() {
-  if (!msxProject) {
-    return { inputs: simulatorInputs, outputs: simulatorOutputs };
-  }
-
-  const inputs = msxProject.inputs.map(block => ({
-    id: block.address,
-    key: block.address,
-    name: block.name,
-    projectName: block.name
-  }));
-  const outputs = [...msxProject.safeOutputs, ...msxProject.statusOutputs].map(block => ({
-    id: block.address,
-    key: block.address,
-    name: block.name,
-    projectName: block.name
-  }));
-
-  return { inputs, outputs };
-}
-
 function initializeMappingPage() {
-  const active = getActiveMappingDefinitions();
-  renderMappingRows("mappingInputs", active.inputs, "inputs");
-  renderMappingRows("mappingOutputs", active.outputs, "outputs");
+  const usage = getProjectIoUsage();
+
+  // A tela sempre representa todo o hardware da CPU M1S.
+  renderMappingRows("mappingInputs", simulatorInputs, "inputs", usage.inputs);
+  renderMappingRows("mappingOutputs", simulatorOutputs, "outputs", usage.outputs);
 
   if ($("mappingInputCount")) {
-    $("mappingInputCount").textContent = active.inputs.length;
+    $("mappingInputCount").textContent = simulatorInputs.length;
   }
 
   if ($("mappingOutputCount")) {
-    $("mappingOutputCount").textContent = active.outputs.length;
+    $("mappingOutputCount").textContent = simulatorOutputs.length;
   }
 
   document.querySelectorAll(".mapping-select").forEach(select => {
