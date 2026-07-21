@@ -19,23 +19,28 @@ const simulatorInputs = [
   { id: "I12", key: "automaticMode", name: "Seletora automático" }
 ];
 
-const simulatorOutputs = [
-  { id: "Q1", key: "safetyValve", name: "Válvula pneumática de segurança" },
-  { id: "Q2", key: "cylinderValve", name: "Válvula de avanço do cilindro" },
-  { id: "Q3", key: "towerGreen", name: "Torre verde" },
-  { id: "Q4", key: "towerYellow", name: "Torre amarela" },
-  { id: "Q5", key: "towerRed", name: "Torre vermelha" },
-  { id: "Q6", key: "resetLed", name: "LED do reset" },
-  { id: "Q7", key: "chockLed", name: "LED do calço monitorado" },
-  { id: "Q8", key: "buzzer", name: "Buzzer" }
+const simulatorSafeOutputs = [
+  { id: "OS1", key: "safetyValve", name: "Válvula pneumática de segurança" },
+  { id: "OS2", key: "cylinderValve", name: "Válvula de avanço do cilindro" },
+  { id: "OS3", key: "safeOutput3", name: "Saída segura reserva 3" },
+  { id: "OS4", key: "safeOutput4", name: "Saída segura reserva 4" }
 ];
+
+const simulatorStatusOutputs = [
+  { id: "ST1", key: "resetLed", name: "LED do reset" },
+  { id: "ST2", key: "towerGreen", name: "Torre verde" },
+  { id: "ST3", key: "towerYellow", name: "Torre amarela" },
+  { id: "ST4", key: "towerRed", name: "Torre vermelha / buzzer" }
+];
+
+const simulatorOutputs = [...simulatorSafeOutputs, ...simulatorStatusOutputs];
 
 const defaultIoMapping = {
   inputs: Object.fromEntries(simulatorInputs.map(item => [item.id, item.key])),
   outputs: Object.fromEntries(simulatorOutputs.map(item => [item.id, item.key]))
 };
 
-const STORAGE_KEY = "pressSimulatorIoMappingV2";
+const STORAGE_KEY = "pressSimulatorIoMappingV3";
 
 /* =========================================================
    ESTADO FÍSICO, BARRAMENTOS E MEMÓRIA DO PROGRAMA
@@ -58,7 +63,9 @@ const initialState = () => ({
   towerRed: false,
   resetLed: false,
   chockLed: false,
-  buzzer: false
+  buzzer: false,
+  safeOutput3: false,
+  safeOutput4: false
 });
 
 let state = initialState();
@@ -142,8 +149,11 @@ let msxRuntime = null;
 let activeProgramMode = "demo";
 
 const BLOCK_ALIASES = {
-  INPUT: ["INPUT", "DIGITALINPUT", "IN", "SAFEINPUT", "LOGICINPUT"],
-  OUTPUT: ["OUTPUT", "DIGITALOUTPUT", "OUT", "SAFEOUTPUT", "LOGICOUTPUT"],
+  INPUT: ["INPUT", "DIGITALINPUT", "IN", "SAFEINPUT", "LOGICINPUT", "INGRESSOITEM"],
+  OUTPUT: ["OUTPUT", "DIGITALOUTPUT", "OUT", "SAFEOUTPUT", "LOGICOUTPUT", "USCITAITEM"],
+  ESTOP: ["FUNGOITEM", "EMERGENCY", "ESTOP"],
+  PASS: ["SIGNALITEM", "INTERPAGINAINITEM", "INTERPAGINAOUTITEM"],
+  CLOCK: ["CLOCKINGITEM", "CLOCK", "BLINK"],
   AND: ["AND", "ANDGATE", "LOGICAND"],
   OR: ["OR", "ORGATE", "LOGICOR"],
   XOR: ["XOR", "XORGATE", "LOGICXOR"],
@@ -280,101 +290,139 @@ function decodeProjectBuffer(buffer) {
     return new TextDecoder("utf-16be").decode(buffer);
   }
 
-  return new TextDecoder("utf-8").decode(buffer);
+  const decoded = new TextDecoder("utf-8").decode(buffer);
+  const xmlStart = decoded.indexOf("<?xml");
+  const diagramStart = decoded.indexOf("<MosaicDiagram");
+  const start = xmlStart >= 0 ? xmlStart : diagramStart;
+  const closingTag = "</MosaicDiagram>";
+  const end = decoded.indexOf(closingTag);
+
+  if (start >= 0 && end >= 0) {
+    return decoded.slice(start, end + closingTag.length);
+  }
+
+  return decoded;
 }
 
 function detectBlockElements(xml) {
-  const all = [...xml.querySelectorAll("*")];
+  const mosaicItems = [...xml.querySelectorAll("MosaicItem")];
+  if (mosaicItems.length > 0) return mosaicItems;
 
+  const all = [...xml.querySelectorAll("*")];
   return all.filter(element => {
     const tag = normalizeToken(element.tagName);
     const hasType = firstAttribute(element, ["type", "blockType", "function", "class", "kind", "name"]);
-    const hasId = firstAttribute(element, ["id", "uid", "guid", "instanceId", "blockId"]);
-
+    const hasId = firstAttribute(element, ["id", "uid", "guid", "instanceId", "blockId", "ItemIdentifier"]);
     return hasId && hasType && (
-      tag.includes("BLOCK") ||
-      tag.includes("FUNCTION") ||
-      tag.includes("ELEMENT") ||
-      classifyBlock(hasType) !== "UNKNOWN"
+      tag.includes("BLOCK") || tag.includes("FUNCTION") || tag.includes("ELEMENT") ||
+      tag === "MOSAICITEM" || classifyBlock(hasType) !== "UNKNOWN"
     );
   });
 }
 
 function detectConnections(xml) {
-  const all = [...xml.querySelectorAll("*")];
-  const connections = [];
+  return [...xml.querySelectorAll("MosaicConnection, Connection, Wire, Link, Edge")]
+    .map((element, index) => {
+      const parameters = readElementParameters(element);
+      const sourceId = firstAttribute(element, ["SourceId", "source", "from", "src", "fromBlock"]);
+      const targetId = firstAttribute(element, ["SinkId", "TargetId", "target", "to", "dst", "toBlock"]);
+      if (!sourceId || !targetId) return null;
 
-  all.forEach((element, index) => {
-    const tag = normalizeToken(element.tagName);
-    if (!["CONNECTION", "CONNECT", "WIRE", "LINK", "EDGE"].some(word => tag.includes(word))) return;
-
-    const parameters = readElementParameters(element);
-    const sourceRaw = findParameter(parameters, ["source", "from", "src", "sourceId", "fromBlock"]);
-    const targetRaw = findParameter(parameters, ["target", "to", "dst", "targetId", "toBlock"]);
-
-    if (!sourceRaw || !targetRaw) return;
-
-    const sourcePort = findParameter(parameters, ["sourcePort", "fromPort", "srcPort"], null);
-    const targetPort = findParameter(parameters, ["targetPort", "toPort", "dstPort"], null);
-    const source = parseEndpoint(sourceRaw);
-    const target = parseEndpoint(targetRaw);
-
-    if (sourcePort) source.port = sourcePort;
-    if (targetPort) target.port = targetPort;
-
-    connections.push({ id: `C${index + 1}`, source, target });
-  });
-
-  return connections;
+      return {
+        id: `C${index + 1}`,
+        source: {
+          blockId: sourceId,
+          port: firstAttribute(element, ["SourceConnectorName", "sourcePort", "fromPort", "srcPort"]) || "OUT"
+        },
+        target: {
+          blockId: targetId,
+          port: firstAttribute(element, ["SinkConnectorName", "TargetConnectorName", "targetPort", "toPort", "dstPort"]) || "IN"
+        }
+      };
+    })
+    .filter(Boolean);
 }
 
-function extractAddress(parameters, direction) {
-  const candidates = direction === "input"
-    ? ["address", "channel", "input", "inputAddress", "io", "name"]
-    : ["address", "channel", "output", "outputAddress", "io", "name"];
+function readMosaicIo(element) {
+  const io = element.querySelector(":scope > IOModule");
+  if (!io) return null;
 
-  const raw = findParameter(parameters, candidates, "");
-  const match = String(raw).toUpperCase().match(direction === "input" ? /I\s*0*(\d+)/ : /Q\s*0*(\d+)/);
-  return match ? `${direction === "input" ? "I" : "Q"}${Number(match[1])}` : null;
+  const index = Number(io.getAttribute("Index"));
+  const direction = io.getAttribute("Direction") || "";
+  let address = null;
+  let group = null;
+
+  if (direction === "Input") {
+    address = `I${index + 1}`;
+    group = "input";
+  } else if (direction === "Output") {
+    address = `OS${index + 1}`;
+    group = "safeOutput";
+  } else if (direction === "OutputStatus") {
+    address = `ST${index + 1}`;
+    group = "statusOutput";
+  }
+
+  return { index, direction, address, group };
+}
+
+function readWireName(element) {
+  return element.querySelector(":scope > ChangeNomeFilo")?.textContent?.trim() || null;
 }
 
 function parseMsxXml(xmlText, fileName = "projeto.msx") {
   const xml = new DOMParser().parseFromString(xmlText, "application/xml");
   const parserError = xml.querySelector("parsererror");
-
-  if (parserError) {
-    throw new Error("O arquivo não contém um XML válido ou usa uma codificação ainda não reconhecida.");
-  }
+  if (parserError) throw new Error("O conteúdo XML do MSX não pôde ser interpretado.");
 
   const blocks = detectBlockElements(xml).map((element, index) => {
     const parameters = readElementParameters(element);
-    const id = firstAttribute(element, ["id", "uid", "guid", "instanceId", "blockId"]) || `B${index + 1}`;
-    const rawType = firstAttribute(element, ["type", "blockType", "function", "class", "kind", "name"]) || element.tagName;
+    const id = firstAttribute(element, ["ItemIdentifier", "id", "uid", "guid", "instanceId", "blockId"]) || `B${index + 1}`;
+    const rawType = firstAttribute(element, ["Type", "type", "blockType", "function", "class", "kind", "ItemName", "name"]) || element.tagName;
     const type = classifyBlock(rawType);
-    const direction = type === "INPUT" ? "input" : type === "OUTPUT" ? "output" : null;
+    const io = readMosaicIo(element);
+    const description = element.querySelector(":scope > ChangeUserDescription")?.textContent?.trim();
+    const wireName = readWireName(element);
 
     return {
       id: String(id),
       type,
       rawType: String(rawType),
-      name: firstAttribute(element, ["label", "displayName", "description", "name"]) || String(rawType),
-      address: direction ? extractAddress(parameters, direction) : null,
+      name: description || wireName || firstAttribute(element, ["ItemName", "label", "displayName", "description", "name"]) || String(rawType),
+      address: io?.address || null,
+      ioDirection: io?.direction || null,
+      ioGroup: io?.group || null,
+      wireName,
       parameters
     };
   });
 
   const connections = detectConnections(xml);
-  const supportedBlocks = blocks.filter(block => block.type !== "UNKNOWN");
-  const unknownBlocks = blocks.filter(block => block.type === "UNKNOWN");
+
+  // Interliga os pares InterpaginaOut/InterpaginaIn que possuem o mesmo nome de fio.
+  const wireOutputs = blocks.filter(block => normalizeToken(block.rawType).includes("INTERPAGINAOUTITEM") && block.wireName);
+  const wireInputs = blocks.filter(block => normalizeToken(block.rawType).includes("INTERPAGINAINITEM") && block.wireName);
+  wireOutputs.forEach(source => {
+    wireInputs.filter(target => target.wireName === source.wireName).forEach((target, index) => {
+      connections.push({
+        id: `WIRE_${source.wireName}_${index}`,
+        source: { blockId: source.id, port: "WIRE" },
+        target: { blockId: target.id, port: "WIRE" }
+      });
+    });
+  });
 
   return {
     fileName,
+    version: xml.querySelector("Diagram")?.getAttribute("Version") || "desconhecida",
     blocks,
     connections,
-    inputs: blocks.filter(block => block.type === "INPUT"),
-    outputs: blocks.filter(block => block.type === "OUTPUT"),
-    supportedBlocks,
-    unknownBlocks,
+    inputs: blocks.filter(block => block.ioGroup === "input"),
+    safeOutputs: blocks.filter(block => block.ioGroup === "safeOutput"),
+    statusOutputs: blocks.filter(block => block.ioGroup === "statusOutput"),
+    outputs: blocks.filter(block => ["safeOutput", "statusOutput"].includes(block.ioGroup)),
+    supportedBlocks: blocks.filter(block => block.type !== "UNKNOWN"),
+    unknownBlocks: blocks.filter(block => block.type === "UNKNOWN"),
     parsedAt: new Date().toISOString()
   };
 }
@@ -423,8 +471,18 @@ class MsxRuntime {
         output = Boolean(inputBusSnapshot[block.address]);
         break;
       case "OUTPUT":
+      case "PASS":
         output = first;
         break;
+      case "ESTOP":
+        output = values.length >= 2 && values.every(Boolean);
+        break;
+      case "CLOCK": {
+        const rawTime = Number(findParameter(block.parameters, ["MemTempo", "PT", "time"], 5));
+        const halfPeriodMs = Math.max(50, rawTime * 100);
+        output = first && Math.floor(now / halfPeriodMs) % 2 === 0;
+        break;
+      }
       case "AND":
         output = values.length > 0 && values.every(Boolean);
         break;
@@ -574,11 +632,16 @@ function reportMsxProject(project) {
     `${project.blocks.length} blocos`,
     `${project.connections.length} conexões`,
     `${project.inputs.length} entradas`,
-    `${project.outputs.length} saídas`,
+    `${project.safeOutputs.length} saídas seguras`,
+    `${project.statusOutputs.length} saídas de status`,
     `${project.unknownBlocks.length} não reconhecidos`
   ].join(" • ");
 
   log(`MSX analisado: ${summary}`);
+
+  console.table(project.inputs.map(block => ({ grupo: "Entrada", endereco: block.address, nome: block.name })));
+  console.table(project.safeOutputs.map(block => ({ grupo: "Saída segura", endereco: block.address, nome: block.name })));
+  console.table(project.statusOutputs.map(block => ({ grupo: "Saída de status", endereco: block.address, nome: block.name })));
 
   if (project.unknownBlocks.length > 0) {
     console.table(project.unknownBlocks.map(block => ({
@@ -635,14 +698,14 @@ function runDemoProgram() {
   );
 
   outputBus = {
-    Q1: safetyValveCommand,
-    Q2: cylinderCommand,
-    Q3: safe && programMemory.ready,
-    Q4: safe && !programMemory.ready,
-    Q5: !safe,
-    Q6: safe && !programMemory.ready,
-    Q7: inputBus.I10,
-    Q8: false
+    OS1: safetyValveCommand,
+    OS2: cylinderCommand,
+    OS3: false,
+    OS4: false,
+    ST1: safe && !programMemory.ready,
+    ST2: safe && programMemory.ready,
+    ST3: safe && !programMemory.ready,
+    ST4: !safe
   };
 }
 
@@ -672,6 +735,8 @@ function applyOutputBus() {
   state.resetLed = physicalOutputs.resetLed;
   state.chockLed = physicalOutputs.chockLed;
   state.buzzer = physicalOutputs.buzzer;
+  state.safeOutput3 = physicalOutputs.safeOutput3;
+  state.safeOutput4 = physicalOutputs.safeOutput4;
 }
 
 function evaluate() {
@@ -915,7 +980,9 @@ $("msxFile")?.addEventListener("change", async event => {
   try {
     const project = await loadMsxFile(file);
     reportMsxProject(project);
-    log("Modo MSX ativado");
+    initializeMappingPage();
+    openPage("io-map");
+    log("Modo MSX ativado — revise e salve o mapeamento");
     evaluate();
   } catch (error) {
     activeProgramMode = "demo";
@@ -942,35 +1009,28 @@ function createMappingOptions(definitions, selectedKey = "") {
 
 function renderMappingRows(containerId, signals, type) {
   const container = $(containerId);
-
-  if (!container) {
-    return;
-  }
+  if (!container) return;
 
   const targets = type === "inputs" ? simulatorInputs : simulatorOutputs;
-
   container.innerHTML = signals.map(signal => {
     const selectedKey = ioMapping[type][signal.id] || "";
+    const groupLabel = signal.id.startsWith("OS")
+      ? "Saída segura"
+      : signal.id.startsWith("ST")
+        ? "Saída de status"
+        : "Entrada digital";
+    const projectName = signal.projectName ? ` — ${signal.projectName}` : "";
 
     return `
       <div class="mapping-row" data-signal-id="${signal.id}">
         <div class="mapping-signal-info">
           <strong>${signal.id}</strong>
-          <span>${type === "inputs" ? "Entrada" : "Saída"} digital ${signal.id.replace(/\D/g, "")}</span>
+          <span>${groupLabel} ${signal.id.replace(/\D/g, "")}${projectName}</span>
         </div>
-
-        <select
-          class="mapping-select"
-          data-signal-id="${signal.id}"
-          data-signal-type="${type}"
-          aria-label="Mapear ${signal.id}"
-        >
+        <select class="mapping-select" data-signal-id="${signal.id}" data-signal-type="${type}" aria-label="Mapear ${signal.id}">
           ${createMappingOptions(targets, selectedKey)}
         </select>
-
-        <span class="mapping-row-status ${selectedKey ? "mapped" : ""}">
-          ${selectedKey ? "✓" : "○"}
-        </span>
+        <span class="mapping-row-status ${selectedKey ? "mapped" : ""}">${selectedKey ? "✓" : "○"}</span>
       </div>
     `;
   }).join("");
@@ -1045,16 +1105,38 @@ function saveIoMapping() {
   evaluate();
 }
 
+function getActiveMappingDefinitions() {
+  if (!msxProject) {
+    return { inputs: simulatorInputs, outputs: simulatorOutputs };
+  }
+
+  const inputs = msxProject.inputs.map(block => ({
+    id: block.address,
+    key: block.address,
+    name: block.name,
+    projectName: block.name
+  }));
+  const outputs = [...msxProject.safeOutputs, ...msxProject.statusOutputs].map(block => ({
+    id: block.address,
+    key: block.address,
+    name: block.name,
+    projectName: block.name
+  }));
+
+  return { inputs, outputs };
+}
+
 function initializeMappingPage() {
-  renderMappingRows("mappingInputs", simulatorInputs, "inputs");
-  renderMappingRows("mappingOutputs", simulatorOutputs, "outputs");
+  const active = getActiveMappingDefinitions();
+  renderMappingRows("mappingInputs", active.inputs, "inputs");
+  renderMappingRows("mappingOutputs", active.outputs, "outputs");
 
   if ($("mappingInputCount")) {
-    $("mappingInputCount").textContent = simulatorInputs.length;
+    $("mappingInputCount").textContent = active.inputs.length;
   }
 
   if ($("mappingOutputCount")) {
-    $("mappingOutputCount").textContent = simulatorOutputs.length;
+    $("mappingOutputCount").textContent = active.outputs.length;
   }
 
   document.querySelectorAll(".mapping-select").forEach(select => {
