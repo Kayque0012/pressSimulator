@@ -147,6 +147,7 @@ function refreshInputBus() {
 let msxProject = null;
 let msxRuntime = null;
 let activeProgramMode = "demo";
+let simulationRunning = true;
 
 const BLOCK_ALIASES = {
   INPUT: ["INPUT", "DIGITALINPUT", "IN", "SAFEINPUT", "LOGICINPUT", "INGRESSOITEM"],
@@ -180,10 +181,39 @@ function normalizeToken(value) {
 }
 
 function classifyBlock(rawType) {
-  const token = normalizeToken(rawType);
+  const raw = String(rawType ?? "");
+  const fullToken = normalizeToken(raw);
+
+  // O Type do Mosaic vem como:
+  // Reer.Mosaic.Controls.Items.NotItem, Designer
+  // Usar includes("OR") classificava NotItem como OR porque "Controls"
+  // contém as letras "or". Portanto, primeiro isolamos o nome real da classe.
+  const classMatch = raw.match(/Items\.([A-Za-z0-9_]+)/i);
+  const className = classMatch
+    ? classMatch[1]
+    : raw.split(",")[0].split(".").pop();
+
+  const classToken = normalizeToken(className);
+  const classWithoutItem = classToken.replace(/ITEM$/, "");
+  const candidates = new Set([fullToken, classToken, classWithoutItem]);
 
   for (const [canonical, aliases] of Object.entries(BLOCK_ALIASES)) {
-    if (aliases.some(alias => token === normalizeToken(alias) || token.includes(normalizeToken(alias)))) {
+    const normalizedAliases = aliases.map(normalizeToken);
+
+    if (normalizedAliases.some(alias => candidates.has(alias))) {
+      return canonical;
+    }
+  }
+
+  // Fallback apenas para nomes longos e específicos. Nunca usamos aliases
+  // curtos como IN, OR e OUT em busca por substring.
+  for (const [canonical, aliases] of Object.entries(BLOCK_ALIASES)) {
+    const match = aliases
+      .map(normalizeToken)
+      .filter(alias => alias.length >= 5)
+      .some(alias => classToken.includes(alias) || classWithoutItem.includes(alias));
+
+    if (match) {
       return canonical;
     }
   }
@@ -616,11 +646,18 @@ async function loadMsxFile(file) {
   msxProject = project;
   msxRuntime = new MsxRuntime(project);
   activeProgramMode = "msx";
+  simulationRunning = false;
+  updateRunButton();
 
   return project;
 }
 
 function runActiveProgram() {
+  if (!simulationRunning) {
+    outputBus = createBooleanBus(simulatorOutputs);
+    return;
+  }
+
   if (activeProgramMode === "msx" && msxRuntime) {
     outputBus = msxRuntime.scan(inputBus);
     return;
@@ -644,6 +681,13 @@ function reportMsxProject(project) {
   console.table(project.inputs.map(block => ({ grupo: "Entrada", endereco: block.address, nome: block.name })));
   console.table(project.safeOutputs.map(block => ({ grupo: "Saída segura", endereco: block.address, nome: block.name })));
   console.table(project.statusOutputs.map(block => ({ grupo: "Saída de status", endereco: block.address, nome: block.name })));
+
+  console.table(project.blocks.map(block => ({
+    nome: block.name,
+    classeOriginal: block.rawType,
+    tipoInterpretado: block.type,
+    endereco: block.address || "-"
+  })));
 
   if (project.unknownBlocks.length > 0) {
     console.table(project.unknownBlocks.map(block => ({
@@ -1149,6 +1193,7 @@ function readMappingFromPage() {
 }
 
 function saveIoMapping() {
+  pulseActionButton($("saveMappingButton"));
   ioMapping = readMappingFromPage();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(ioMapping));
 
@@ -1168,6 +1213,11 @@ function saveIoMapping() {
 
   msxRuntime?.reset();
   log("Mapeamento de I/O salvo e aplicado");
+
+  if (activeProgramMode === "msx" && !simulationRunning) {
+    log("Clique em Executar para iniciar o projeto MSX");
+  }
+
   evaluate();
 }
 
@@ -1197,6 +1247,53 @@ function initializeMappingPage() {
 }
 
 $("saveMappingButton")?.addEventListener("click", saveIoMapping);
+
+/* =========================================================
+   EXECUTAR / PARAR SIMULAÇÃO
+========================================================= */
+
+function updateRunButton() {
+  const button = $("runButton");
+
+  if (!button) {
+    return;
+  }
+
+  button.textContent = simulationRunning ? "■ Parar" : "▶ Executar";
+  button.classList.toggle("running", simulationRunning);
+}
+
+function pulseActionButton(button) {
+  if (!button) return;
+  button.classList.remove("action-confirmed");
+  void button.offsetWidth;
+  button.classList.add("action-confirmed");
+  window.setTimeout(() => button.classList.remove("action-confirmed"), 380);
+}
+
+$("runButton")?.addEventListener("click", event => {
+  pulseActionButton(event.currentTarget);
+
+  if (activeProgramMode === "msx" && !msxProject) {
+    log("Carregue um arquivo MSX antes de executar");
+    return;
+  }
+
+  simulationRunning = !simulationRunning;
+
+  if (simulationRunning) {
+    msxRuntime?.reset();
+    log(activeProgramMode === "msx"
+      ? "Execução do projeto MSX iniciada"
+      : "Modo demonstração iniciado");
+  } else {
+    outputBus = createBooleanBus(simulatorOutputs);
+    log("Simulação parada");
+  }
+
+  updateRunButton();
+  evaluate();
+});
 
 /* =========================================================
    NAVEGAÇÃO
@@ -1325,6 +1422,7 @@ function tick(now) {
 ========================================================= */
 
 initializeMappingPage();
+updateRunButton();
 log("Sistema iniciado");
 log("Mapa de I/O funcional carregado");
 evaluate();
