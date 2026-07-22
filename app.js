@@ -1,5 +1,8 @@
 const $ = id => document.getElementById(id);
 
+const PRESS_SIMULATOR_BUILD = "alpha8-output-registry";
+window.PRESS_SIMULATOR_BUILD = PRESS_SIMULATOR_BUILD;
+
 /* =========================================================
    DEFINIÇÃO DOS COMPONENTES FÍSICOS
 ========================================================= */
@@ -19,12 +22,12 @@ const simulatorInputs = [
   { id: "I12", key: "automaticMode", name: "Seletora automático" }
 ];
 
-const simulatorSafeOutputs = [
-  { id: "OS1", key: "safetyValve", name: "Válvula pneumática de segurança" },
-  { id: "OS2", key: "cylinderValve", name: "Válvula de avanço do cilindro" },
-  { id: "OS3", key: "cylinderRetractValve", name: "Válvula de recuo do cilindro" },
-  { id: "OS4", key: "safeOutput4", name: "Saída segura reserva 4" }
-];
+const simulatorSafeOutputs = Object.freeze([
+  Object.freeze({ id: "OS1", key: "safetyValve", name: "Válvula pneumática de segurança" }),
+  Object.freeze({ id: "OS2", key: "cylinderValve", name: "Válvula de avanço do cilindro" }),
+  Object.freeze({ id: "OS3", key: "cylinderRetractValve", name: "Válvula de recuo do cilindro" }),
+  Object.freeze({ id: "OS4", key: "safeOutput4", name: "Saída segura reserva 4" })
+]);
 
 const simulatorStatusOutputs = [
   { id: "ST1", key: "resetLed", name: "LED do reset" },
@@ -1818,3 +1821,6 @@ log("Mapa de I/O funcional carregado");
 log("Cilindro configurado com avanço, recuo e retenção de posição");
 evaluate();
 requestAnimationFrame(tick);
+
+
+console.info(`[pressSimulator] build ${PRESS_SIMULATOR_BUILD}`);
