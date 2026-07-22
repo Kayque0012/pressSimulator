@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 
-const PRESS_SIMULATOR_BUILD = "alpha9-run-button-fix";
+const PRESS_SIMULATOR_BUILD = "alpha10-splitter";
 window.PRESS_SIMULATOR_BUILD = PRESS_SIMULATOR_BUILD;
 
 /* =========================================================
@@ -159,6 +159,8 @@ const MOSAIC_BLOCK_REGISTRY = {
   IngressoItem: { type: "INPUT", level: "full", family: "I/O" },
   UscitaItem: { type: "OUTPUT", level: "full", family: "I/O" },
   SignalItem: { type: "PASS", level: "full", family: "Roteamento" },
+  Splitter: { type: "PASS", level: "full", family: "Roteamento" },
+  SplitterItem: { type: "PASS", level: "full", family: "Roteamento" },
   InterpaginaInItem: { type: "PASS", level: "full", family: "Roteamento" },
   InterpaginaOutItem: { type: "PASS", level: "full", family: "Roteamento" },
   MarkerInItem: { type: "PASS", level: "full", family: "Roteamento" },
@@ -234,7 +236,7 @@ const BLOCK_ALIASES = {
   SWITCH: ["SWITCHITEM", "SWITCH"],
   BIMANUAL: ["BIMANUALEITEM", "BIMANUALITEM", "TWOHAND"],
   OSSD: ["OSSDCONFIGURABILEITEM", "OSSDITEM", "OSSD"],
-  PASS: ["SIGNALITEM", "INTERPAGINAINITEM", "INTERPAGINAOUTITEM", "MARKERINITEM", "MARKEROUTITEM"],
+  PASS: ["SIGNALITEM", "SPLITTER", "SPLITTERITEM", "INTERPAGINAINITEM", "INTERPAGINAOUTITEM", "MARKERINITEM", "MARKEROUTITEM"],
   CLOCK: ["CLOCKINGITEM", "CLOCK", "BLINK"],
   AND: ["AND", "ANDGATE", "LOGICAND"],
   OR: ["OR", "ORGATE", "LOGICOR"],
@@ -1854,6 +1856,7 @@ updateRunButton();
 log("Sistema iniciado");
 log("Mapa de I/O funcional carregado");
 log("Cilindro configurado com avanço, recuo e retenção de posição");
+log("Splitter reconhecido como divisor passivo de sinal");
 evaluate();
 requestAnimationFrame(tick);
 
