@@ -149,19 +149,92 @@ let msxRuntime = null;
 let activeProgramMode = "demo";
 let simulationRunning = true;
 
+const MOSAIC_BLOCK_REGISTRY = {
+  // I/O e roteamento
+  IngressoItem: { type: "INPUT", level: "full", family: "I/O" },
+  UscitaItem: { type: "OUTPUT", level: "full", family: "I/O" },
+  SignalItem: { type: "PASS", level: "full", family: "Roteamento" },
+  InterpaginaInItem: { type: "PASS", level: "full", family: "Roteamento" },
+  InterpaginaOutItem: { type: "PASS", level: "full", family: "Roteamento" },
+  MarkerInItem: { type: "PASS", level: "full", family: "Roteamento" },
+  MarkerOutItem: { type: "PASS", level: "full", family: "Roteamento" },
+  TerminatoreItem: { type: "TERMINATOR", level: "full", family: "Roteamento" },
+
+  // Lógica booleana
+  OrItem: { type: "OR", level: "full", family: "Lógica" },
+  XOrItem: { type: "XOR", level: "full", family: "Lógica" },
+  AndItem: { type: "AND", level: "full", family: "Lógica" },
+  NOrItem: { type: "NOR", level: "full", family: "Lógica" },
+  XNorItem: { type: "XNOR", level: "full", family: "Lógica" },
+  NAndItem: { type: "NAND", level: "full", family: "Lógica" },
+  NotItem: { type: "NOT", level: "full", family: "Lógica" },
+  MultiplexItem: { type: "MULTIPLEX", level: "partial", family: "Lógica" },
+  MacroLogicaItem: { type: "MACRO_LOGIC", level: "catalog", family: "Lógica" },
+  DigitalComparatorItem: { type: "DIGITAL_COMPARATOR", level: "partial", family: "Lógica" },
+
+  // Memórias
+  FFItem: { type: "FF", level: "full", family: "Memória" },
+  FlipFlopDItem: { type: "D_FF", level: "full", family: "Memória" },
+  FlipFlopTItem: { type: "T_FF", level: "full", family: "Memória" },
+
+  // Restart e segurança
+  FungoItem: { type: "ESTOP", level: "full", family: "Segurança" },
+  BimanualeItem: { type: "BIMANUAL", level: "full", family: "Segurança" },
+  SwitchItem: { type: "SWITCH", level: "full", family: "Segurança" },
+  OSSDConfigurabileItem: { type: "OSSD", level: "full", family: "Segurança" },
+  RestartManualItem: { type: "RESTART_MANUAL", level: "full", family: "Restart" },
+  RestartMonitoredItem: { type: "RESTART_MONITORED", level: "full", family: "Restart" },
+  MacroRestartManualeItem: { type: "MACRO_RESTART_MANUAL", level: "catalog", family: "Restart" },
+  MacroRestartMonitoratoItem: { type: "MACRO_RESTART_MONITORED", level: "catalog", family: "Restart" },
+  PreResetItem: { type: "PRE_RESET", level: "catalog", family: "Restart" },
+  GuardLockSafetyItem: { type: "GUARD_LOCK", level: "catalog", family: "Segurança" },
+  OssdEdmItem: { type: "OSSD_EDM", level: "catalog", family: "Segurança" },
+  ResetM1Item: { type: "RESET_M1", level: "catalog", family: "Sistema" },
+
+  // Tempo e contagem
+  CounterItem: { type: "COUNTER", level: "partial", family: "Contagem" },
+  CounterComparatorItem: { type: "COUNTER_COMPARATOR", level: "partial", family: "Contagem" },
+  DelayItem: { type: "DELAY", level: "partial", family: "Tempo" },
+  LongDelayItem: { type: "LONG_DELAY", level: "partial", family: "Tempo" },
+  LongDelayComparatorItem: { type: "LONG_DELAY_COMPARATOR", level: "catalog", family: "Tempo" },
+  LineaRitardoItem: { type: "DELAY_LINE", level: "partial", family: "Tempo" },
+  LongLineaRitardoItem: { type: "LONG_DELAY_LINE", level: "partial", family: "Tempo" },
+  ClockingItem: { type: "CLOCK", level: "full", family: "Tempo" },
+  MonostabileItem: { type: "MONOSTABLE", level: "full", family: "Tempo" },
+  MonostabilePItem: { type: "MONOSTABLE_P", level: "full", family: "Tempo" },
+  PassingItem: { type: "PASSING", level: "partial", family: "Tempo" },
+
+  // Muting
+  MutingLItem: { type: "MUTING_L", level: "catalog", family: "Muting" },
+  MutingTItem: { type: "MUTING_T", level: "catalog", family: "Muting" },
+  MutingSeqItem: { type: "MUTING_SEQ", level: "catalog", family: "Muting" },
+  MutingSimItem: { type: "MUTING_SIM", level: "catalog", family: "Muting" },
+  MutingOverrideItem: { type: "MUTING_OVERRIDE", level: "catalog", family: "Muting" },
+
+  // Analógico, comunicação e sistema
+  AnalogComparatorItem: { type: "ANALOG_COMPARATOR", level: "catalog", family: "Analógico" },
+  AdderItem: { type: "ADDER", level: "catalog", family: "Analógico" },
+  AnalogEqualityCheckItem: { type: "ANALOG_EQUALITY", level: "catalog", family: "Analógico" },
+  SerialOutputItem: { type: "SERIAL_OUTPUT", level: "catalog", family: "Comunicação" },
+  SerialCRCItem: { type: "SERIAL_CRC", level: "catalog", family: "Comunicação" },
+  NetworkItem: { type: "NETWORK", level: "catalog", family: "Comunicação" }
+};
+
 const BLOCK_ALIASES = {
   INPUT: ["INPUT", "DIGITALINPUT", "IN", "SAFEINPUT", "LOGICINPUT", "INGRESSOITEM"],
   OUTPUT: ["OUTPUT", "DIGITALOUTPUT", "OUT", "SAFEOUTPUT", "LOGICOUTPUT", "USCITAITEM"],
   ESTOP: ["FUNGOITEM", "EMERGENCY", "ESTOP"],
   RESTART_MONITORED: ["RESTARTMONITOREDITEM", "RESTARTMONITORED"],
+  RESTART_MANUAL: ["RESTARTMANUALITEM", "RESTARTMANUAL"],
   SWITCH: ["SWITCHITEM", "SWITCH"],
   BIMANUAL: ["BIMANUALEITEM", "BIMANUALITEM", "TWOHAND"],
   OSSD: ["OSSDCONFIGURABILEITEM", "OSSDITEM", "OSSD"],
-  PASS: ["SIGNALITEM", "INTERPAGINAINITEM", "INTERPAGINAOUTITEM"],
+  PASS: ["SIGNALITEM", "INTERPAGINAINITEM", "INTERPAGINAOUTITEM", "MARKERINITEM", "MARKEROUTITEM"],
   CLOCK: ["CLOCKINGITEM", "CLOCK", "BLINK"],
   AND: ["AND", "ANDGATE", "LOGICAND"],
   OR: ["OR", "ORGATE", "LOGICOR"],
   XOR: ["XOR", "XORGATE", "LOGICXOR"],
+  XNOR: ["XNOR", "XNORGATE", "LOGICXNOR"],
   NOT: ["NOT", "INVERTER", "NEGATE"],
   NAND: ["NAND"],
   NOR: ["NOR"],
@@ -175,7 +248,6 @@ const BLOCK_ALIASES = {
   CONST_TRUE: ["TRUE", "CONSTTRUE", "CONSTANTTRUE"],
   CONST_FALSE: ["FALSE", "CONSTFALSE", "CONSTANTFALSE"]
 };
-
 function normalizeToken(value) {
   return String(value ?? "")
     .normalize("NFD")
@@ -184,47 +256,43 @@ function normalizeToken(value) {
     .toUpperCase();
 }
 
+function getMosaicClassName(rawType) {
+  const raw = String(rawType ?? "");
+  const classMatch = raw.match(/Items\.([A-Za-z0-9_]+)/i);
+  return classMatch ? classMatch[1] : raw.split(",")[0].split(".").pop();
+}
+
+function getBlockRegistration(rawType) {
+  const className = getMosaicClassName(rawType);
+  return MOSAIC_BLOCK_REGISTRY[className] || null;
+}
+
 function classifyBlock(rawType) {
+  const registration = getBlockRegistration(rawType);
+  if (registration) return registration.type;
+
   const raw = String(rawType ?? "");
   const fullToken = normalizeToken(raw);
-
-  // O Type do Mosaic vem como:
-  // Reer.Mosaic.Controls.Items.NotItem, Designer
-  // Usar includes("OR") classificava NotItem como OR porque "Controls"
-  // contém as letras "or". Portanto, primeiro isolamos o nome real da classe.
-  const classMatch = raw.match(/Items\.([A-Za-z0-9_]+)/i);
-  const className = classMatch
-    ? classMatch[1]
-    : raw.split(",")[0].split(".").pop();
-
+  const className = getMosaicClassName(raw);
   const classToken = normalizeToken(className);
   const classWithoutItem = classToken.replace(/ITEM$/, "");
   const candidates = new Set([fullToken, classToken, classWithoutItem]);
 
   for (const [canonical, aliases] of Object.entries(BLOCK_ALIASES)) {
     const normalizedAliases = aliases.map(normalizeToken);
-
-    if (normalizedAliases.some(alias => candidates.has(alias))) {
-      return canonical;
-    }
+    if (normalizedAliases.some(alias => candidates.has(alias))) return canonical;
   }
 
-  // Fallback apenas para nomes longos e específicos. Nunca usamos aliases
-  // curtos como IN, OR e OUT em busca por substring.
   for (const [canonical, aliases] of Object.entries(BLOCK_ALIASES)) {
     const match = aliases
       .map(normalizeToken)
       .filter(alias => alias.length >= 5)
       .some(alias => classToken.includes(alias) || classWithoutItem.includes(alias));
-
-    if (match) {
-      return canonical;
-    }
+    if (match) return canonical;
   }
 
   return "UNKNOWN";
 }
-
 function firstAttribute(element, names) {
   for (const name of names) {
     if (element.hasAttribute(name)) {
@@ -414,6 +482,8 @@ function parseMsxXml(xmlText, fileName = "projeto.msx") {
     const id = firstAttribute(element, ["ItemIdentifier", "id", "uid", "guid", "instanceId", "blockId"]) || `B${index + 1}`;
     const rawType = firstAttribute(element, ["Type", "type", "blockType", "function", "class", "kind", "ItemName", "name"]) || element.tagName;
     const type = classifyBlock(rawType);
+    const className = getMosaicClassName(rawType);
+    const registration = getBlockRegistration(rawType);
     const io = readMosaicIo(element);
     const description = element.querySelector(":scope > ChangeUserDescription")?.textContent?.trim();
     const wireName = readWireName(element);
@@ -421,6 +491,9 @@ function parseMsxXml(xmlText, fileName = "projeto.msx") {
     return {
       id: String(id),
       type,
+      className,
+      supportLevel: registration?.level || (type === "UNKNOWN" ? "unknown" : "partial"),
+      family: registration?.family || "Não catalogado",
       rawType: String(rawType),
       name: description || wireName || firstAttribute(element, ["ItemName", "label", "displayName", "description", "name"]) || String(rawType),
       address: io?.address || null,
@@ -455,8 +528,10 @@ function parseMsxXml(xmlText, fileName = "projeto.msx") {
     safeOutputs: blocks.filter(block => block.ioGroup === "safeOutput"),
     statusOutputs: blocks.filter(block => block.ioGroup === "statusOutput"),
     outputs: blocks.filter(block => ["safeOutput", "statusOutput"].includes(block.ioGroup)),
-    supportedBlocks: blocks.filter(block => block.type !== "UNKNOWN"),
-    unknownBlocks: blocks.filter(block => block.type === "UNKNOWN"),
+    supportedBlocks: blocks.filter(block => block.supportLevel === "full"),
+    partialBlocks: blocks.filter(block => block.supportLevel === "partial"),
+    catalogBlocks: blocks.filter(block => block.supportLevel === "catalog"),
+    unknownBlocks: blocks.filter(block => block.supportLevel === "unknown"),
     parsedAt: new Date().toISOString()
   };
 }
@@ -506,12 +581,21 @@ class MsxRuntime {
         break;
       case "OUTPUT":
       case "PASS":
+      case "TERMINATOR":
         output = first;
         break;
       case "ESTOP": {
         const ch1 = inputs.TOPLEFT ?? inputs.IN1 ?? values[0] ?? false;
         const ch2 = inputs.BOTTOMLEFT ?? inputs.IN2 ?? values[1] ?? false;
         output = Boolean(ch1 && ch2);
+        break;
+      }
+      case "RESTART_MANUAL": {
+        const safetyInput = inputs.IN ?? inputs.TOPLEFT ?? values[0] ?? false;
+        const resetInput = inputs.IMPULSO ?? inputs.RESET ?? inputs.IN2 ?? values[1] ?? false;
+        if (!safetyInput) memory.q = false;
+        else if (resetInput) memory.q = true;
+        output = Boolean(memory.q && safetyInput);
         break;
       }
       case "RESTART_MONITORED": {
@@ -565,6 +649,51 @@ class MsxRuntime {
       case "NOR":
         output = !values.some(Boolean);
         break;
+      case "XNOR":
+        output = values.filter(Boolean).length % 2 === 0;
+        break;
+      case "MULTIPLEX": {
+        const selector = inputs.SELECT ?? inputs.SEL ?? values[values.length - 1] ?? false;
+        const data = values.slice(0, Math.max(1, values.length - 1));
+        output = Boolean(data[selector ? 1 : 0] ?? data[0] ?? false);
+        break;
+      }
+      case "DIGITAL_COMPARATOR": {
+        const activeCount = values.filter(Boolean).length;
+        const constantValue = Number(findParameter(block.parameters, ["MemCostanteComparazione"], 0));
+        const comparatorType = Number(findParameter(block.parameters, ["MemTipoComparatore"], 4));
+        if (comparatorType === 0) output = activeCount === constantValue;
+        else if (comparatorType === 1) output = activeCount !== constantValue;
+        else if (comparatorType === 2) output = activeCount > constantValue;
+        else if (comparatorType === 3) output = activeCount < constantValue;
+        else output = activeCount >= constantValue;
+        break;
+      }
+      case "FF": {
+        const set = inputs.SET ?? inputs.S ?? values[0] ?? false;
+        const reset = inputs.RESET ?? inputs.R ?? values[1] ?? false;
+        if (reset) memory.q = false;
+        else if (set) memory.q = true;
+        output = Boolean(memory.q);
+        break;
+      }
+      case "D_FF": {
+        const data = inputs.D ?? values[0] ?? false;
+        const clock = inputs.CLOCK ?? inputs.CLK ?? values[1] ?? false;
+        const rising = clock && !Boolean(memory.previousClock);
+        memory.previousClock = Boolean(clock);
+        if (rising) memory.q = Boolean(data);
+        output = Boolean(memory.q);
+        break;
+      }
+      case "T_FF": {
+        const clock = inputs.T ?? inputs.CLOCK ?? inputs.CLK ?? values[0] ?? false;
+        const rising = clock && !Boolean(memory.previousClock);
+        memory.previousClock = Boolean(clock);
+        if (rising) memory.q = !Boolean(memory.q);
+        output = Boolean(memory.q);
+        break;
+      }
       case "CONST_TRUE":
         output = true;
         break;
@@ -621,6 +750,66 @@ class MsxRuntime {
         memory.previous = first;
         if (rising) memory.pulseUntil = now + preset;
         output = now < Number(memory.pulseUntil || 0);
+        break;
+      }
+      case "MONOSTABLE":
+      case "MONOSTABLE_P": {
+        const rawTime = Number(findParameter(block.parameters, ["MemTempo", "PT", "time"], 1));
+        const preset = Math.max(10, rawTime * 1000);
+        const rising = first && !Boolean(memory.previous);
+        memory.previous = first;
+        if (rising) memory.pulseUntil = now + preset;
+        output = now < Number(memory.pulseUntil || 0);
+        break;
+      }
+      case "DELAY":
+      case "LONG_DELAY":
+      case "DELAY_LINE":
+      case "LONG_DELAY_LINE": {
+        const rawTime = Number(findParameter(block.parameters, ["MemTempo", "PT", "time"], 1));
+        const preset = Math.max(10, rawTime * 1000);
+        if (first) {
+          if (!memory.startedAt) memory.startedAt = now;
+          output = now - memory.startedAt >= preset;
+        } else {
+          memory.startedAt = null;
+          output = false;
+        }
+        break;
+      }
+      case "PASSING": {
+        const rawTime = Number(findParameter(block.parameters, ["MemTempo", "PT", "time"], 1));
+        const preset = Math.max(10, rawTime * 1000);
+        const falling = !first && Boolean(memory.previous);
+        memory.previous = first;
+        if (falling) memory.passUntil = now + preset;
+        output = first || now < Number(memory.passUntil || 0);
+        break;
+      }
+      case "COUNTER": {
+        const pulse = inputs.IN ?? inputs.CLOCK ?? values[0] ?? false;
+        const reset = inputs.RESET ?? values[1] ?? false;
+        const rising = pulse && !Boolean(memory.previousPulse);
+        memory.previousPulse = Boolean(pulse);
+        if (reset) memory.count = 0;
+        else if (rising) memory.count = Number(memory.count || 0) + 1;
+        const preset = Number(findParameter(block.parameters, ["MemConteggio"], 2));
+        output = Number(memory.count || 0) >= preset;
+        break;
+      }
+      case "COUNTER_COMPARATOR": {
+        const pulse = inputs.IN ?? inputs.CLOCK ?? values[0] ?? false;
+        const reset = inputs.RESET ?? values[1] ?? false;
+        const rising = pulse && !Boolean(memory.previousPulse);
+        memory.previousPulse = Boolean(pulse);
+        if (reset) memory.count = 0;
+        else if (rising) memory.count = Number(memory.count || 0) + 1;
+        const preset = Number(findParameter(block.parameters, ["MemConteggio"], 2));
+        const comparatorType = Number(findParameter(block.parameters, ["MemTipoComparatore"], 1));
+        if (comparatorType === 0) output = memory.count === preset;
+        else if (comparatorType === 1) output = memory.count >= preset;
+        else if (comparatorType === 2) output = memory.count > preset;
+        else output = memory.count <= preset;
         break;
       }
       default:
@@ -814,7 +1003,10 @@ function reportMsxProject(project) {
     `${project.inputs.length} entradas`,
     `${project.safeOutputs.length} saídas seguras`,
     `${project.statusOutputs.length} saídas de status`,
-    `${project.unknownBlocks.length} não reconhecidos`
+    `${project.supportedBlocks.length} completos`,
+    `${project.partialBlocks.length} parciais`,
+    `${project.catalogBlocks.length} catalogados`,
+    `${project.unknownBlocks.length} desconhecidos`
   ].join(" • ");
 
   log(`MSX analisado: ${summary}`);
@@ -834,9 +1026,24 @@ function reportMsxProject(project) {
     nome: block.name,
     classeOriginal: block.rawType,
     tipoInterpretado: block.type,
+    suporte: block.supportLevel,
+    familia: block.family,
     endereco: block.address || "-"
   })));
 
+
+  if (project.catalogBlocks.length > 0) {
+    log(`${project.catalogBlocks.length} blocos reconhecidos no catálogo ainda exigem teste funcional conectado`);
+    console.table(project.catalogBlocks.map(block => ({
+      classe: block.className,
+      familia: block.family,
+      estado: "CATALOGADO — sem semântica validada"
+    })));
+  }
+
+  if (project.partialBlocks.length > 0) {
+    log(`${project.partialBlocks.length} blocos possuem implementação inicial e precisam de validação`);
+  }
   if (project.unknownBlocks.length > 0) {
     console.table(project.unknownBlocks.map(block => ({
       id: block.id,
@@ -1424,6 +1631,11 @@ $("runButton")?.addEventListener("click", event => {
 
   if (activeProgramMode === "msx" && !msxProject) {
     log("Carregue um arquivo MSX antes de executar");
+    return;
+  }
+
+  if (activeProgramMode === "msx" && msxProject?.unknownBlocks.length > 0) {
+    log("Execução bloqueada: existem blocos desconhecidos no projeto");
     return;
   }
 
