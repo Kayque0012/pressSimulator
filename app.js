@@ -22,7 +22,7 @@ const simulatorInputs = [
 const simulatorSafeOutputs = [
   { id: "OS1", key: "safetyValve", name: "Válvula pneumática de segurança" },
   { id: "OS2", key: "cylinderValve", name: "Válvula de avanço do cilindro" },
-  { id: "OS3", key: "safeOutput3", name: "Saída segura reserva 3" },
+  { id: "OS3", key: "cylinderRetractValve", name: "Válvula de recuo do cilindro" },
   { id: "OS4", key: "safeOutput4", name: "Saída segura reserva 4" }
 ];
 
@@ -58,6 +58,8 @@ const initialState = () => ({
 
   safetyValve: false,
   cylinderValve: false,
+  cylinderRetractValve: false,
+  cylinderCommandConflict: false,
   towerGreen: false,
   towerYellow: false,
   towerRed: false,
@@ -860,6 +862,8 @@ function clearProgramOutputs() {
 
   state.safetyValve = false;
   state.cylinderValve = false;
+  state.cylinderRetractValve = false;
+  state.cylinderCommandConflict = false;
   state.towerGreen = false;
   state.towerYellow = false;
   state.towerRed = false;
@@ -922,7 +926,8 @@ function suggestOutputMapping(block) {
   const name = normalizeToken(block.name);
 
   if (name.includes("LED") && name.includes("RESET")) return "resetLed";
-  if (name.includes("AVANCA") || name.includes("AVANCO") || name.includes("CILINDRO")) return "cylinderValve";
+  if (name.includes("RECUA") || name.includes("RECUO") || name.includes("RETRAI") || name.includes("RETRACT")) return "cylinderRetractValve";
+  if (name.includes("AVANCA") || name.includes("AVANCO") || name.includes("EXTEND")) return "cylinderValve";
   if (name.includes("SEGUR") || name.includes("PRESSUR") || name.includes("DUMP")) return "safetyValve";
   if (name.includes("VERDE") || name.includes("GREEN")) return "towerGreen";
   if (name.includes("AMAREL") || name.includes("YELLOW")) return "towerYellow";
@@ -1129,7 +1134,15 @@ function applyOutputBus() {
   });
 
   state.safetyValve = physicalOutputs.safetyValve;
-  state.cylinderValve = physicalOutputs.cylinderValve && state.safetyValve;
+
+  const advanceCommand = Boolean(physicalOutputs.cylinderValve) && state.safetyValve;
+  const retractCommand = Boolean(physicalOutputs.cylinderRetractValve) && state.safetyValve;
+  const hasConflict = advanceCommand && retractCommand;
+
+  state.cylinderCommandConflict = hasConflict;
+  state.cylinderValve = advanceCommand && !hasConflict;
+  state.cylinderRetractValve = retractCommand && !hasConflict;
+
   state.towerGreen = physicalOutputs.towerGreen;
   state.towerYellow = physicalOutputs.towerYellow;
   state.towerRed = physicalOutputs.towerRed;
@@ -1138,7 +1151,6 @@ function applyOutputBus() {
   // Portanto, sem um endereço explicitamente mapeado ele fica sempre apagado.
   state.chockLed = false;
   state.buzzer = physicalOutputs.buzzer;
-  state.safeOutput3 = physicalOutputs.safeOutput3;
   state.safeOutput4 = physicalOutputs.safeOutput4;
 }
 
@@ -1757,12 +1769,20 @@ document.addEventListener("keyup", event => {
 ========================================================= */
 
 let lastFrame = performance.now();
+let previousCylinderConflict = false;
 
 function tick(now) {
   const dt = Math.min((now - lastFrame) / 1000, 0.05);
   lastFrame = now;
 
-  const target = state.cylinderValve ? 1 : 0;
+  let target = state.cylinder;
+
+  if (state.cylinderValve) {
+    target = 1;
+  } else if (state.cylinderRetractValve) {
+    target = 0;
+  }
+
   const speed = 0.9;
 
   if (state.cylinder < target) {
@@ -1774,6 +1794,16 @@ function tick(now) {
   }
 
   evaluate();
+
+  if (state.cylinderCommandConflict !== previousCylinderConflict) {
+    if (state.cylinderCommandConflict) {
+      log("Conflito: avanço e recuo do cilindro ativos ao mesmo tempo. Movimento bloqueado.");
+    } else if (previousCylinderConflict) {
+      log("Conflito das válvulas do cilindro eliminado.");
+    }
+    previousCylinderConflict = state.cylinderCommandConflict;
+  }
+
   requestAnimationFrame(tick);
 }
 
@@ -1785,5 +1815,6 @@ initializeMappingPage();
 updateRunButton();
 log("Sistema iniciado");
 log("Mapa de I/O funcional carregado");
+log("Cilindro configurado com avanço, recuo e retenção de posição");
 evaluate();
 requestAnimationFrame(tick);
