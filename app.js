@@ -1938,6 +1938,85 @@ function tick(now) {
 
   requestAnimationFrame(tick);
 }
+/* =========================================================
+   PONTE: PARSER V2 → MOTOR LÓGICO EXISTENTE
+========================================================= */
+
+window.addEventListener(
+  "presssimulator:v2-project-ready",
+  event => {
+    const project =
+      event.detail?.runtimeProject;
+
+    if (!project) {
+      log(
+        "Parser V2 não entregou um projeto válido"
+      );
+
+      return;
+    }
+
+    try {
+      resetLoadedProjectState();
+
+      msxProject = project;
+
+      msxRuntime =
+        new MsxRuntime(msxProject);
+
+      activeProgramMode = "msx";
+      simulationRunning = false;
+
+      ioMapping =
+        buildSuggestedMapping(msxProject);
+
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(ioMapping)
+      );
+
+      clearProgramOutputs();
+
+      initializeMappingPage();
+      updateRunButton();
+
+      reportMsxProject(msxProject);
+
+      log(
+        `Parser V2 assumiu o projeto: ${msxProject.fileName}`
+      );
+
+      if (msxProject.errors?.length) {
+        log(
+          `${msxProject.errors.length} erros de estrutura encontrados`
+        );
+      }
+
+      if (
+        msxProject.unknownBlocks.length > 0
+      ) {
+        log(
+          `${msxProject.unknownBlocks.length} blocos desconhecidos impedem a execução`
+        );
+      } else {
+        log(
+          "Projeto V2 pronto. Clique em Executar."
+        );
+      }
+
+      evaluate();
+    } catch (error) {
+      console.error(
+        "[PressSimulator] Falha ao ativar projeto V2:",
+        error
+      );
+
+      log(
+        `Falha ao ativar parser V2: ${error.message}`
+      );
+    }
+  }
+);
 
 /* =========================================================
    INICIALIZAÇÃO
