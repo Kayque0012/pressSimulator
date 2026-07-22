@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 
-const PRESS_SIMULATOR_BUILD = "alpha8-output-registry";
+const PRESS_SIMULATOR_BUILD = "alpha9-run-button-fix";
 window.PRESS_SIMULATOR_BUILD = PRESS_SIMULATOR_BUILD;
 
 /* =========================================================
@@ -1641,16 +1641,29 @@ function pulseActionButton(button) {
   window.setTimeout(() => button.classList.remove("action-confirmed"), 380);
 }
 
-$("runButton")?.addEventListener("click", event => {
-  pulseActionButton(event.currentTarget);
+function handleRunButtonClick(event) {
+  const button = event?.currentTarget || $("runButton");
+  pulseActionButton(button);
 
   if (activeProgramMode === "msx" && !msxProject) {
     log("Carregue um arquivo MSX antes de executar");
+    if (button) {
+      button.textContent = "⚠ Carregue um MSX";
+      window.setTimeout(updateRunButton, 1200);
+    }
     return;
   }
 
-  if (activeProgramMode === "msx" && msxProject?.unknownBlocks.length > 0) {
-    log("Execução bloqueada: existem blocos desconhecidos no projeto");
+  const unknownCount = Array.isArray(msxProject?.unknownBlocks)
+    ? msxProject.unknownBlocks.length
+    : 0;
+
+  if (activeProgramMode === "msx" && unknownCount > 0) {
+    log(`Execução bloqueada: ${unknownCount} bloco(s) desconhecido(s) no projeto`);
+    if (button) {
+      button.textContent = "⚠ Blocos desconhecidos";
+      window.setTimeout(updateRunButton, 1400);
+    }
     return;
   }
 
@@ -1663,12 +1676,33 @@ $("runButton")?.addEventListener("click", event => {
       : "Modo demonstração iniciado");
   } else {
     outputBus = createBooleanBus(simulatorOutputs);
+    clearProgramOutputs();
     log("Simulação parada");
   }
 
   updateRunButton();
   evaluate();
-});
+}
+
+function bindRunButton() {
+  const button = $("runButton");
+
+  if (!button) {
+    console.error("[pressSimulator] botão #runButton não encontrado");
+    return;
+  }
+
+  // Evita listeners duplicados caso a inicialização seja executada novamente.
+  if (button.dataset.runBound === "true") {
+    return;
+  }
+
+  button.dataset.runBound = "true";
+  button.addEventListener("click", handleRunButtonClick);
+  button.disabled = false;
+  button.removeAttribute("aria-disabled");
+  console.info("[pressSimulator] botão Executar vinculado");
+}
 
 /* =========================================================
    NAVEGAÇÃO
@@ -1815,6 +1849,7 @@ function tick(now) {
 ========================================================= */
 
 initializeMappingPage();
+bindRunButton();
 updateRunButton();
 log("Sistema iniciado");
 log("Mapa de I/O funcional carregado");
