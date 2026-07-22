@@ -584,17 +584,85 @@ function parseMsxXml(xmlText, fileName = "projeto.msx") {
   const connections = detectConnections(xml);
 
   // Interliga os pares InterpaginaOut/InterpaginaIn que possuem o mesmo nome de fio.
-  const wireOutputs = blocks.filter(block => normalizeToken(block.rawType).includes("INTERPAGINAOUTITEM") && block.wireName);
-  const wireInputs = blocks.filter(block => normalizeToken(block.rawType).includes("INTERPAGINAINITEM") && block.wireName);
-  wireOutputs.forEach(source => {
-    wireInputs.filter(target => target.wireName === source.wireName).forEach((target, index) => {
-      connections.push({
-        id: `WIRE_${source.wireName}_${index}`,
-        source: { blockId: source.id, port: "WIRE" },
-        target: { blockId: target.id, port: "WIRE" }
-      });
-    });
+ /*
+ * Interliga sinais nomeados usados entre páginas.
+ *
+ * O Mosaic utiliza tanto InterpaginaIn/Out quanto MarkerIn/Out.
+ * Esses objetos são equivalentes a fios virtuais: o valor produzido
+ * por um OUT deve chegar a todos os IN com o mesmo nome.
+ */
+function connectNamedRoutingPairs({
+  outputClass,
+  inputClass,
+  connectionPrefix
+}) {
+  const sources = blocks.filter(block => {
+    const classToken = normalizeToken(block.rawType);
+    const signalName = normalizeToken(
+      block.wireName || block.name
+    );
+
+    return (
+      classToken.includes(outputClass) &&
+      signalName
+    );
   });
+
+  const targets = blocks.filter(block => {
+    const classToken = normalizeToken(block.rawType);
+    const signalName = normalizeToken(
+      block.wireName || block.name
+    );
+
+    return (
+      classToken.includes(inputClass) &&
+      signalName
+    );
+  });
+
+  sources.forEach(source => {
+    const sourceName = normalizeToken(
+      source.wireName || source.name
+    );
+
+    targets
+      .filter(target => {
+        const targetName = normalizeToken(
+          target.wireName || target.name
+        );
+
+        return targetName === sourceName;
+      })
+      .forEach((target, index) => {
+        connections.push({
+          id:
+            `${connectionPrefix}_${sourceName}_${source.id}_${target.id}_${index}`,
+
+          source: {
+            blockId: source.id,
+            port: "WIRE"
+          },
+
+          target: {
+            blockId: target.id,
+            port: "WIRE"
+          }
+        });
+      });
+  });
+}
+
+connectNamedRoutingPairs({
+  outputClass: "INTERPAGINAOUTITEM",
+  inputClass: "INTERPAGINAINITEM",
+  connectionPrefix: "INTERPAGE"
+});
+
+connectNamedRoutingPairs({
+  outputClass: "MARKEROUTITEM",
+  inputClass: "MARKERINITEM",
+  connectionPrefix: "MARKER"
+});
 
   return {
     fileName,
