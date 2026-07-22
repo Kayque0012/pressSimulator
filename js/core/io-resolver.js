@@ -40,13 +40,16 @@ function buildModuleKey(ioElement, ownerElement) {
 
   while (parent) {
     const parentCandidates = [
-      parent.getAttribute("Module"),
-      parent.getAttribute("ModuleId"),
-      parent.getAttribute("ModuleIdentifier"),
-      parent.getAttribute("Device"),
-      parent.getAttribute("DeviceId"),
-      parent.getAttribute("ItemIdentifier")
-    ];
+  parent.getAttribute("Module"),
+  parent.getAttribute("ModuleId"),
+  parent.getAttribute("ModuleIdentifier"),
+  parent.getAttribute("Device"),
+  parent.getAttribute("DeviceId"),
+  parent.getAttribute("Board"),
+  parent.getAttribute("BoardId"),
+  parent.getAttribute("Unit"),
+  parent.getAttribute("UnitId")
+];
 
     const parentValue = parentCandidates
       .map(normalizeValue)
