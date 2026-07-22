@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 
-const PRESS_SIMULATOR_BUILD = "alpha10-splitter";
+const PRESS_SIMULATOR_BUILD = "alpha11-module-aware-io";
 window.PRESS_SIMULATOR_BUILD = PRESS_SIMULATOR_BUILD;
 
 /* =========================================================
@@ -139,9 +139,17 @@ function getPhysicalInputStates() {
 function refreshInputBus() {
   const physicalInputs = getPhysicalInputStates();
 
-  simulatorInputs.forEach(signal => {
-    const mappedComponent = ioMapping.inputs[signal.id];
-    inputBus[signal.id] = Boolean(physicalInputs[mappedComponent]);
+  // O endereço lógico pertence ao projeto MSX, não ao componente físico.
+  // Por isso percorremos também endereços de módulos adicionais (ex.: M2.I1).
+  const addresses = new Set([
+    ...simulatorInputs.map(signal => signal.id),
+    ...Object.keys(ioMapping.inputs || {}),
+    ...(msxProject?.inputs || []).map(block => block.address).filter(Boolean)
+  ]);
+
+  addresses.forEach(address => {
+    const mappedComponent = ioMapping.inputs[address];
+    inputBus[address] = Boolean(physicalInputs[mappedComponent]);
   });
 }
 
@@ -452,27 +460,72 @@ function detectConnections(xml) {
     .filter(Boolean);
 }
 
-function readMosaicIo(element) {
+function buildIoModuleIndex(xml) {
+  const groups = {
+    Input: new Map(),
+    Output: new Map(),
+    OutputStatus: new Map()
+  };
+
+  [...xml.querySelectorAll("IOModule")].forEach(io => {
+    const direction = io.getAttribute("Direction") || "";
+    const moduleId = io.getAttribute("Module") || "SEM_MODULO";
+
+    if (!groups[direction]) {
+      groups[direction] = new Map();
+    }
+
+    if (!groups[direction].has(moduleId)) {
+      groups[direction].set(moduleId, groups[direction].size);
+    }
+  });
+
+  return groups;
+}
+
+function readMosaicIo(element, moduleIndex) {
   const io = element.querySelector(":scope > IOModule");
   if (!io) return null;
 
   const index = Number(io.getAttribute("Index"));
   const direction = io.getAttribute("Direction") || "";
-  let address = null;
+  const moduleId = io.getAttribute("Module") || "SEM_MODULO";
+  const moduleOrder = moduleIndex?.[direction]?.get(moduleId) ?? 0;
+
+  let baseAddress = null;
   let group = null;
 
   if (direction === "Input") {
-    address = `I${index + 1}`;
+    baseAddress = `I${index + 1}`;
     group = "input";
   } else if (direction === "Output") {
-    address = `OS${index + 1}`;
+    baseAddress = `OS${index + 1}`;
     group = "safeOutput";
   } else if (direction === "OutputStatus") {
-    address = `ST${index + 1}`;
+    baseAddress = `ST${index + 1}`;
     group = "statusOutput";
   }
 
-  return { index, direction, address, group };
+  if (!baseAddress) {
+    return { index, direction, address: null, group: null, moduleId, moduleOrder };
+  }
+
+  // O índice do Mosaic reinicia em cada módulo. O módulo principal mantém
+  // I1/OS1/ST1; módulos adicionais recebem prefixo para evitar colisão.
+  const address = moduleOrder === 0
+    ? baseAddress
+    : `M${moduleOrder + 1}.${baseAddress}`;
+
+  return {
+    index,
+    direction,
+    address,
+    baseAddress,
+    group,
+    moduleId,
+    moduleOrder,
+    moduleLabel: moduleOrder === 0 ? "M1S" : `Módulo ${moduleOrder + 1}`
+  };
 }
 
 function readWireName(element) {
@@ -484,6 +537,8 @@ function parseMsxXml(xmlText, fileName = "projeto.msx") {
   const parserError = xml.querySelector("parsererror");
   if (parserError) throw new Error("O conteúdo XML do MSX não pôde ser interpretado.");
 
+  const ioModuleIndex = buildIoModuleIndex(xml);
+
   const blocks = detectBlockElements(xml).map((element, index) => {
     const parameters = readElementParameters(element);
     const id = firstAttribute(element, ["ItemIdentifier", "id", "uid", "guid", "instanceId", "blockId"]) || `B${index + 1}`;
@@ -491,7 +546,7 @@ function parseMsxXml(xmlText, fileName = "projeto.msx") {
     const type = classifyBlock(rawType);
     const className = getMosaicClassName(rawType);
     const registration = getBlockRegistration(rawType);
-    const io = readMosaicIo(element);
+    const io = readMosaicIo(element, ioModuleIndex);
     const description = element.querySelector(":scope > ChangeUserDescription")?.textContent?.trim();
     const wireName = readWireName(element);
 
@@ -504,8 +559,12 @@ function parseMsxXml(xmlText, fileName = "projeto.msx") {
       rawType: String(rawType),
       name: description || wireName || firstAttribute(element, ["ItemName", "label", "displayName", "description", "name"]) || String(rawType),
       address: io?.address || null,
+      baseAddress: io?.baseAddress || null,
       ioDirection: io?.direction || null,
       ioGroup: io?.group || null,
+      ioModuleId: io?.moduleId || null,
+      ioModuleOrder: io?.moduleOrder ?? null,
+      ioModuleLabel: io?.moduleLabel || null,
       wireName,
       parameters
     };
@@ -1417,11 +1476,13 @@ function getMappingTargetsForSignal(signal, type) {
     return simulatorInputs;
   }
 
-  if (signal.id.startsWith("OS")) {
+  const baseId = signal.id.split(".").pop();
+
+  if (baseId.startsWith("OS")) {
     return simulatorSafeOutputs;
   }
 
-  if (signal.id.startsWith("ST")) {
+  if (baseId.startsWith("ST")) {
     return simulatorStatusOutputs;
   }
 
@@ -1469,9 +1530,13 @@ function renderMappingRows(containerId, signals, type, projectUsage) {
       : signal.id.startsWith("ST")
         ? "Saída de status"
         : "Entrada digital";
+    const addressLabel = projectBlock?.ioModuleOrder > 0
+      ? `${projectBlock.ioModuleLabel} · ${projectBlock.baseAddress}`
+      : signal.id;
+
     const detail = usedByProject
-      ? `${groupLabel} ${signal.id.replace(/\D/g, "")} — ${projectBlock.name}`
-      : `${groupLabel} ${signal.id.replace(/\D/g, "")} — não utilizado neste projeto`;
+      ? `${groupLabel} ${addressLabel} — ${projectBlock.name}`
+      : `${groupLabel} ${signal.id} — não utilizado neste projeto`;
 
     return `
       <div
@@ -1593,15 +1658,36 @@ function saveIoMapping() {
   evaluate();
 }
 
+function getInputSignalsForMapping() {
+  const signals = [...simulatorInputs];
+  const known = new Set(signals.map(signal => signal.id));
+
+  (msxProject?.inputs || []).forEach(block => {
+    if (!block.address || known.has(block.address)) {
+      return;
+    }
+
+    signals.push({
+      id: block.address,
+      key: "",
+      name: `${block.ioModuleLabel || "Módulo adicional"} · ${block.baseAddress || block.address}`
+    });
+    known.add(block.address);
+  });
+
+  return signals;
+}
+
 function initializeMappingPage() {
   const usage = getProjectIoUsage();
+  const inputSignals = getInputSignalsForMapping();
 
-  // A tela sempre representa todo o hardware da CPU M1S.
-  renderMappingRows("mappingInputs", simulatorInputs, "inputs", usage.inputs);
+  // Mostra o M1S e também endereços usados em módulos adicionais do projeto.
+  renderMappingRows("mappingInputs", inputSignals, "inputs", usage.inputs);
   renderMappingRows("mappingOutputs", simulatorOutputs, "outputs", usage.outputs);
 
   if ($("mappingInputCount")) {
-    $("mappingInputCount").textContent = simulatorInputs.length;
+    $("mappingInputCount").textContent = inputSignals.length;
   }
 
   if ($("mappingOutputCount")) {
