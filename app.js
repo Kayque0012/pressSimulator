@@ -1444,6 +1444,13 @@ $("mode")?.addEventListener("change", event => {
 });
 
 $("msxFile")?.addEventListener("change", async event => {
+    /*
+   * Quando a arquitetura V2 estiver ativa,
+   * o listener antigo não deve analisar o arquivo.
+   */
+  if (window.PRESS_SIMULATOR_USE_V2) {
+    return;
+  }
   const file = event.target.files[0];
 
   if (!file) {
