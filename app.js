@@ -130,7 +130,7 @@ function getPhysicalInputStates() {
     reset: state.reset,
     sensorRetracted,
     sensorExtended,
-    chockSafe: !state.chockInserted,
+    chockSafe: state.chockInserted,
     manualMode: state.mode === "manual",
     automaticMode: state.mode === "automatic"
   };
@@ -468,6 +468,7 @@ function detectConnections(xml) {
       };
     })
     .filter(Boolean);
+   //vc é bom bb, me avisa se viu isso aqui kkkkkkkkkkkk cambio
 }
 
 function buildIoModuleIndex(xml) {
