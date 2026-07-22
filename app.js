@@ -234,6 +234,16 @@ const MOSAIC_BLOCK_REGISTRY = {
   SerialCRCItem: { type: "SERIAL_CRC", level: "catalog", family: "Comunicação" },
   NetworkItem: { type: "NETWORK", level: "catalog", family: "Comunicação" }
 };
+/*
+ * Disponibiliza o catálogo de blocos para os módulos da arquitetura V2.
+ */
+window.MOSAIC_BLOCK_REGISTRY = MOSAIC_BLOCK_REGISTRY;
+
+console.info(
+  "[PressSimulator] catálogo compartilhado com a V2:",
+  Object.keys(MOSAIC_BLOCK_REGISTRY).length,
+  "tipos"
+);
 
 const BLOCK_ALIASES = {
   INPUT: ["INPUT", "DIGITALINPUT", "IN", "SAFEINPUT", "LOGICINPUT", "INGRESSOITEM"],
