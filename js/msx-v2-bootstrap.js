@@ -4,24 +4,47 @@ import {
   graphToRuntimeProject
 } from "./core/runtime-project-adapter.js";
 
-/*
- * Informa ao app.js antigo que a importação do MSX
- * será controlada pela arquitetura V2.
- */
 window.PRESS_SIMULATOR_USE_V2 = true;
 
-const adapter = new MsxV2Adapter();
+let adapter = null;
 
 window.pressSimulatorV2 = {
-  adapter,
+  adapter: null,
   graph: null,
   summary: null,
   runtimeProject: null
 };
 
 function logV2(message) {
-  console.log(
-    `[PressSimulator V2] ${message}`
+  console.log(`[PressSimulator V2] ${message}`);
+}
+
+function getBlockRegistry() {
+  const registry =
+    window.MOSAIC_BLOCK_REGISTRY;
+
+  if (!registry) {
+    throw new Error(
+      "O catálogo MOSAIC_BLOCK_REGISTRY não foi disponibilizado pelo app.js."
+    );
+  }
+
+  return registry;
+}
+
+function initializeAdapter() {
+  const blockRegistry =
+    getBlockRegistry();
+
+  adapter = new MsxV2Adapter({
+    blockRegistry
+  });
+
+  window.pressSimulatorV2.adapter =
+    adapter;
+
+  logV2(
+    `${Object.keys(blockRegistry).length} tipos de bloco carregados no parser V2.`
   );
 }
 
@@ -30,25 +53,10 @@ function showSummary(summary) {
     "[PressSimulator V2] Resultado do parser"
   );
 
-  console.log(
-    "Arquivo:",
-    summary.fileName
-  );
-
-  console.log(
-    "Versão:",
-    summary.version
-  );
-
-  console.log(
-    "Blocos:",
-    summary.totalBlocks
-  );
-
-  console.log(
-    "Conexões:",
-    summary.totalConnections
-  );
+  console.log("Arquivo:", summary.fileName);
+  console.log("Versão:", summary.version);
+  console.log("Blocos:", summary.totalBlocks);
+  console.log("Conexões:", summary.totalConnections);
 
   console.log("Entradas:");
   console.table(summary.inputs);
@@ -62,9 +70,13 @@ function showSummary(summary) {
   console.log("Módulos:");
   console.table(summary.modules);
 
+  console.log(
+    "Blocos desconhecidos:",
+    summary.unknownBlocks.length
+  );
+
   if (summary.unknownBlocks.length) {
     console.warn(
-      "Blocos desconhecidos:",
       summary.unknownBlocks
     );
   }
@@ -87,6 +99,10 @@ function showSummary(summary) {
 }
 
 async function loadProjectWithV2(file) {
+  if (!adapter) {
+    initializeAdapter();
+  }
+
   logV2(`Analisando ${file.name}...`);
 
   const graph =
@@ -109,10 +125,6 @@ async function loadProjectWithV2(file) {
 
   showSummary(summary);
 
-  /*
-   * Envia o projeto corrigido para o motor lógico
-   * que continua dentro do app.js.
-   */
   window.dispatchEvent(
     new CustomEvent(
       "presssimulator:v2-project-ready",
@@ -127,11 +139,22 @@ async function loadProjectWithV2(file) {
   );
 
   logV2(
-    "Projeto enviado ao motor lógico."
+    "Projeto V2 enviado ao motor lógico."
   );
 }
 
 function connectMsxInput() {
+  try {
+    initializeAdapter();
+  } catch (error) {
+    console.error(
+      "[PressSimulator V2] Falha na inicialização:",
+      error
+    );
+
+    return;
+  }
+
   const input =
     document.getElementById("msxFile");
 
@@ -143,10 +166,6 @@ function connectMsxInput() {
     return;
   }
 
-  /*
-   * capture:true permite que a V2 receba o arquivo
-   * antes dos listeners antigos.
-   */
   input.addEventListener(
     "change",
     async event => {
